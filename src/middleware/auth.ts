@@ -1,25 +1,17 @@
 import { getCookie } from 'hono/cookie'
+import { verify } from 'hono/jwt'
 import type { Env } from '../types'
 import { Context } from 'hono'
 
 export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: Function) => {
-  const sessionId = getCookie(c, 'session')
-  if (!sessionId) {
+  const token = getCookie(c, 'session')
+  if (!token) {
     return c.redirect('/login')
   }
 
   try {
-    const sessionDOId = c.env.SESSIONS_DO.idFromName(sessionId);
-    const sessionDO = c.env.SESSIONS_DO.get(sessionDOId);
-    
-    const response = await sessionDO.fetch(new Request('https://dummy-url/get'));
-    const userEmail = await response.text();
-    
-    if (!userEmail) {
-      return c.redirect('/login')
-    }
-
-    c.set('userEmail', userEmail)
+    const payload = verify(token, 'your-secret-key')
+    c.set('userEmail', payload.email)
     await next()
   } catch (error) {
     console.error('Auth middleware error:', error)
@@ -27,7 +19,6 @@ export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: Functi
   }
 }
 
-// Remove checkAuth since we're using authMiddleware
 export const validateEnv = (env: Env) => {
   if (!env.USERS_KV) throw new Error('USERS_KV is not configured');
   if (!env.SESSIONS_DO) throw new Error('SESSIONS_DO is not configured');

@@ -58,16 +58,6 @@ app.notFound((c) => {
 app.use(cors())
 
 app.use('*', async (c, next) => {
-  // Set a cookie
-  setCookie(c, 'session', 'session_value', { path: '/', httpOnly: true });
-
-  // Get a cookie
-  const sessionCookie = getCookie(c, 'session');
-  console.log('Session Cookie:', sessionCookie);
-
-  // Delete a cookie
-  deleteCookie(c, 'session');
-
   try {
     validateEnv(c.env);
     await next();
@@ -75,6 +65,16 @@ app.use('*', async (c, next) => {
     console.error('Environment error:', err);
     return c.text('Server configuration error', 500);
   }
+});
+
+// Middleware to check for session cookie
+app.use('/*', async (c, next) => {
+  const sessionCookie = getCookie(c, 'session');
+  if (!sessionCookie) {
+    return c.redirect('/login');
+  }
+  console.log('Session Cookie:', sessionCookie);
+  await next();
 });
 
 // Login/Signup routes with error handling

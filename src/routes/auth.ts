@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
-import { getCookie, setCookie } from 'hono/cookie'
-import { sign } from 'hono/jwt'  // Changed this line
+import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
+import { sign, verify } from 'hono/jwt'
 import { hashPassword, generateSecureKey } from '../utils'
 import { loginTemplate } from '../components/login'
 import { signupTemplate } from '../components/signup'
@@ -33,16 +33,9 @@ auth.all('/login', async (c) => {
       return c.json({ error: 'Invalid credentials' }, 401);
     }
 
-    const sessionId = generateSecureKey();
-    const sessionDOId = c.env.SESSIONS_DO.idFromName(sessionId);
-    const sessionDO = c.env.SESSIONS_DO.get(sessionDOId);
-    
-    await sessionDO.fetch(new Request('https://dummy-url/save', {
-      method: 'POST',
-      body: email as string
-    }));
+    const token = sign({ email }, 'your-secret-key', { expiresIn: '24h' });
 
-    setCookie(c, 'session', sessionId, {
+    setCookie(c, 'session', token, {
       httpOnly: true,
       secure: true,
       path: '/',
@@ -86,18 +79,9 @@ auth.all('/signup', async (c) => {
     const user = { email, password: hashedPassword };
     await c.env.USERS_KV.put(email as string, JSON.stringify(user));
 
-    // Create session with proper DO ID
-    const sessionId = generateSecureKey();
-    const sessionDOId = c.env.SESSIONS_DO.idFromName(sessionId);
-    const sessionDO = c.env.SESSIONS_DO.get(sessionDOId);
-    
-    // Save the email in the session
-    await sessionDO.fetch(new Request('https://dummy-url/save', {
-      method: 'POST',
-      body: email as string
-    }));
+    const token = sign({ email }, 'your-secret-key', { expiresIn: '24h' });
 
-    setCookie(c, 'session', sessionId, {
+    setCookie(c, 'session', token, {
       httpOnly: true,
       secure: true,
       path: '/',
@@ -113,15 +97,7 @@ auth.all('/signup', async (c) => {
 })
 
 auth.post('/logout', async (c) => {
-  const sessionId = c.req.cookie('session');
-  if (sessionId) {
-    const sessionDOId = c.env.SESSIONS_DO.idFromName(sessionId);
-    const sessionDO = c.env.SESSIONS_DO.get(sessionDOId);
-    await sessionDO.fetch(new Request('https://dummy-url/delete', {
-      method: 'POST'
-    }));
-    setCookie(c, 'session', '', { maxAge: 0 });
-  }
+  deleteCookie(c, 'session', { path: '/' });
   return c.json({ message: 'Logged out successfully' });
 });
 
