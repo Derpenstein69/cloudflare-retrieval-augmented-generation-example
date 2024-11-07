@@ -20,14 +20,24 @@ app.use('*', async (c, next) => {
   }
 });
 
-// Public routes
+// Login/Signup routes should be accessible without auth
+app.get('/login', async (c) => c.html(loginTemplate()))
+app.get('/signup', async (c) => c.html(signupTemplate()))
+
+// Mount auth routes for POST handlers
 app.route('/auth', authRoutes)
 
 // Protected routes
-app.use('*', authMiddleware) // Protect all routes after this
-app.get('/', async (c) => {
-  return c.html(homeTemplate())
+app.use('/*', async (c, next) => {
+  // Skip auth check for login and signup routes
+  if (c.req.path.startsWith('/login') || c.req.path.startsWith('/signup') || c.req.path.startsWith('/auth')) {
+    return next()
+  }
+  return authMiddleware(c, next)
 })
+
+// Main routes
+app.get('/', async (c) => c.html(homeTemplate()))
 app.route('/notes', notesRoutes)
 app.route('/settings', settingsRoutes)
 

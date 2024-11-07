@@ -53,27 +53,7 @@ auth.post('/login', async (c) => {
   }
 });
 
-auth.get('/login', async (c) => {
-  const sessionId = getCookie(c, 'session');
-  if (sessionId) {
-    try {
-      const sessionDOId = c.env.SESSIONS_DO.idFromName(sessionId);
-      const sessionDO = c.env.SESSIONS_DO.get(sessionDOId);
-      
-      const response = await sessionDO.fetch(new Request('https://dummy-url/get'));
-      const userEmail = await response.text();
-      
-      if (userEmail && userEmail !== 'null') {
-        return c.redirect('/');
-      }
-    } catch (error) {
-      console.error('Session check error:', error);
-      // Continue to login page if session check fails
-    }
-  }
-  return c.html(loginTemplate());
-});
-
+// Remove the GET handlers since they're now in index.ts
 auth.post('/signup', async (c) => {
   try {
     const formData = await c.req.parseBody();
@@ -124,10 +104,6 @@ auth.post('/signup', async (c) => {
     console.error('Signup error:', err);
     return c.json({ error: "An error occurred during signup" }, 500);
   }
-})
-
-auth.get('/signup', (c) => {
-  return c.html(signupTemplate())
 })
 
 auth.post('/logout', async (c) => {
