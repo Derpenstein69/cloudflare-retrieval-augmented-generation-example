@@ -20,6 +20,9 @@ app.use('*', async (c, next) => {
   }
 });
 
+// Apply auth check to all routes
+app.use('*', checkAuth)
+
 app.route('/', authRoutes)
 app.route('/', notesRoutes)
 app.route('/', settingsRoutes)

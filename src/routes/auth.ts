@@ -9,36 +9,47 @@ import type { Env } from '../types'
 const auth = new Hono<{ Bindings: Env }>()
 
 auth.post('/login', async (c) => {
-  const formData = await c.req.parseBody();
-  const { email, password } = formData;
-  
-  if (!email || !password) {
-    return c.text('Email and password are required', 400);
+  try {
+    const formData = await c.req.parseBody();
+    const { email, password } = formData;
+    
+    if (!email || !password) {
+      return c.json({ error: 'Email and password are required' }, 400);
+    }
+
+    const userData = await c.env.USERS_KV.get(email);
+    if (!userData) {
+      return c.json({ error: 'Invalid credentials' }, 401);
+    }
+
+    const user = JSON.parse(userData);
+    const hashedPassword = await hashPassword(password as string);
+    
+    if (user.password !== hashedPassword) {
+      return c.json({ error: 'Invalid credentials' }, 401);
+    }
+
+    const sessionId = generateSecureKey();
+    try {
+      await c.env.SESSIONS_DO.get(sessionId).then(obj => obj.save(email));
+    } catch (error) {
+      console.error('Session creation error:', error);
+      return c.json({ error: 'Failed to create session' }, 500);
+    }
+
+    setCookie(c, 'session', sessionId, {
+      httpOnly: true,
+      secure: true,
+      path: '/',
+      sameSite: 'Strict',
+      maxAge: 60 * 60 * 24 // 24 hours
+    });
+
+    return c.redirect('/');
+  } catch (error) {
+    console.error('Login error:', error);
+    return c.json({ error: 'Internal server error' }, 500);
   }
-
-  const userData = await c.env.USERS_KV.get(email);
-  if (!userData) {
-    return c.text('Invalid email or password', 401);
-  }
-
-  const user = JSON.parse(userData);
-  const hashedPassword = await hashPassword(password as string);
-  
-  if (user.password !== hashedPassword) {
-    return c.text('Invalid email or password', 401);
-  }
-
-  const sessionId = generateSecureKey();
-  await c.env.SESSIONS_DO.get(sessionId).then(obj => obj.save(email));
-  
-  setCookie(c, 'session', sessionId, {
-    httpOnly: true,
-    secure: true,
-    path: '/',
-    sameSite: 'Strict'
-  });
-
-  return c.redirect('/');
 });
 
 auth.get('/login', (c) => {
@@ -89,24 +100,27 @@ auth.get('/signup', (c) => {
 })
 
 auth.post('/logout', async (c) => {
-  const sessionId = getCookie(c, 'session');
-  if (sessionId) {
-    // Clear the session from DO
-    await c.env.SESSIONS_DO.get(sessionId).then(async (obj) => {
-      if (obj) {
-        await c.env.SESSIONS_DO.delete(sessionId);
-      }
-    });
+  try {
+    const sessionId = getCookie(c, 'session');
+    if (sessionId) {
+      await c.env.SESSIONS_DO.get(sessionId).then(async (obj) => {
+        if (obj) {
+          await c.env.SESSIONS_DO.delete(sessionId);
+        }
+      });
 
-    // Clear the cookie
-    setCookie(c, 'session', '', {
-      httpOnly: true,
-      secure: true,
-      path: '/',
-      maxAge: 0
-    });
+      setCookie(c, 'session', '', {
+        httpOnly: true,
+        secure: true,
+        path: '/',
+        maxAge: 0
+      });
+    }
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return c.json({ error: 'Failed to logout' }, 500);
   }
-  return c.json({ success: true });
 });
 
 export default auth

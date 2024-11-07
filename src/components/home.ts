@@ -32,19 +32,21 @@ export const homeTemplate = () => `
       position: absolute;
       right: 0;
       top: 100%;
-      background-color: white;
-      color: black;
+      background-color: var(--secondary-color);
+      color: var(--text-color);
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       list-style: none;
       padding: 0;
       margin: 0;
+      min-width: 150px;
     }
     .menu-item {
       padding: 10px;
       cursor: pointer;
+      transition: background-color 0.2s;
     }
     .menu-item:hover {
-      background-color: #f0f0f0;
+      background-color: var(--primary-color);
     }
     .sidebar {
       width: 200px;
@@ -101,9 +103,9 @@ export const homeTemplate = () => `
     <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
     <div class="user-icon" onclick="toggleMenu()">👤
       <ul class="menu" id="user-menu">
-        <li class="menu-item" onclick="alert('Profile')">Profile</li>
-        <li class="menu-item" onclick="alert('Settings')">Settings</li>
-        <li class="menu-item" onclick="logout()">Logout</li>
+        <li class="menu-item" onclick="loadContent('/profile')">Profile</li>
+        <li class="menu-item" onclick="loadContent('/settings')">Settings</li>
+        <li class="menu-item" onclick="handleLogout()">Logout</li>
       </ul>
     </div>
   </div>
@@ -207,45 +209,56 @@ export const homeTemplate = () => `
         } else {
           console.error('Logout failed:', await response.text());
           alert('Failed to logout. Please try again.');
+          return false;
         }
       } catch (error) {
         console.error('Logout error:', error);
         alert('Failed to logout. Please try again.');
+        return false;
+      }
+      return true;
+    }
+
+    async function handleLogout() {
+      if (await logout()) {
+        toggleMenu();
       }
     }
 
     document.addEventListener('click', function(event) {
       const menu = document.getElementById('user-menu');
-      if (!event.target.closest('.user-icon')) {
+      const userIcon = event.target.closest('.user-icon');
+      const menuItem = event.target.closest('.menu-item');
+      
+      if (!userIcon && !menuItem) {
         menu.style.display = 'none';
       }
     });
 
     async function loadContent(path) {
-      const response = await fetch(path);
-      const html = await response.text();
-      document.getElementById('content').innerHTML = html;
-      
-      // Update URL without page reload
-      history.pushState(null, '', path);
-    }
-
-    // Handle menu item clicks
-    document.querySelectorAll('.menu-item').forEach(item => {
-      item.onclick = (e) => {
-        e.preventDefault();
-        if (item.textContent === 'Settings') {
-          loadContent('/settings');
-        } else if (item.textContent === 'Profile') {
-          loadContent('/profile');
+      try {
+        const response = await fetch(path);
+        if (response.status === 302 || response.status === 401) {
+          window.location.href = '/login';
+          return;
         }
-        toggleMenu();
-      };
-    });
+        if (!response.ok) {
+          throw new Error('HTTP error! status: ' + response.status);
+        }
+        const html = await response.text();
+        document.getElementById('content').innerHTML = html;
+        history.pushState(null, '', path);
+        return true;
+      } catch (error) {
+        console.error('Content loading error:', error);
+        alert('Failed to load content. Please try again.');
+        return false;
+      }
+    }
 
     // Handle browser back/forward buttons
     window.onpopstate = () => {
       loadContent(window.location.pathname);
-    };
+    }
   </script>
 `;
