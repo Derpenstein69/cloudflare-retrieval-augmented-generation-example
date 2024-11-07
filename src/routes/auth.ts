@@ -48,6 +48,7 @@ auth.all('/login', async (c) => {
     });
 
     console.log('User logged in:', email);
+    console.log('Session token set:', token);
     return c.redirect('/');
   } catch (error) {
     console.error('Login error:', error);
@@ -100,6 +101,7 @@ auth.all('/signup', async (c) => {
     });
 
     console.log('User signed up:', email);
+    console.log('Session token set:', token);
     return c.redirect('/');
   } catch (err) {
     console.error('Signup error:', err);
