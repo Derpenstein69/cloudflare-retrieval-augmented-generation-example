@@ -45,5 +45,4 @@ head_sampling_rate = 1
 # Remove or comment out the JWT_SECRET line since we're generating it dynamically
 # JWT_SECRET = "your-secret-key-here"
 
-[compatibility_flags]
-nodejs_compat = true
+compatibility_flags = ["nodejs_compat"]
