@@ -115,8 +115,12 @@ auth.all('/signup', async (c) => {
 auth.post('/logout', async (c) => {
   const sessionId = c.req.cookie('session');
   if (sessionId) {
-    await c.env.SESSIONS_DO.delete(sessionId);
-    c.res.cookie('session', '', { maxAge: 0 });
+    const sessionDOId = c.env.SESSIONS_DO.idFromName(sessionId);
+    const sessionDO = c.env.SESSIONS_DO.get(sessionDOId);
+    await sessionDO.fetch(new Request('https://dummy-url/delete', {
+      method: 'POST'
+    }));
+    setCookie(c, 'session', '', { maxAge: 0 });
   }
   return c.json({ message: 'Logged out successfully' });
 });

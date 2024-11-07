@@ -1,13 +1,14 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { cookie } from 'hono/cookie'; // Add this import
 import { authMiddleware, validateEnv } from './middleware/auth'
 import authRoutes from './routes/auth'
 import notesRoutes from './routes/notes'
-import profileRoutes from './routes/profile'  // Add this import
+import profileRoutes from './routes/profile'
 import settingsRoutes from './routes/settings'
 import { homeTemplate } from './components/home'
-import { loginTemplate } from './components/login'  // Add this import
-import { signupTemplate } from './components/signup'  // Add this import
+import { loginTemplate } from './components/login'
+import { signupTemplate } from './components/signup'
 import type { Env } from './types'
 
 const app = new Hono<{ Bindings: Env }>()
@@ -55,6 +56,7 @@ app.notFound((c) => {
 });
 
 app.use(cors())
+app.use(cookie()); // Add this line to use the cookie middleware
 app.use('*', async (c, next) => {
   try {
     validateEnv(c.env);
@@ -99,7 +101,7 @@ app.use('/*', async (c, next) => {
 // Main routes
 app.get('/', async (c) => c.html(homeTemplate()))
 app.route('/notes', notesRoutes)
-app.route('/profile', profileRoutes)  // Add this line
+app.route('/profile', profileRoutes) // Ensure this line is present
 app.route('/settings', settingsRoutes)
 
 app.get('/query', async (c) => {
