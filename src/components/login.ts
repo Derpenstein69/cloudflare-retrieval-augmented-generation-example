@@ -1,4 +1,3 @@
-
 import { sharedStyles, themeScript } from './shared';
 
 export const loginTemplate = () => `
@@ -17,7 +16,7 @@ export const loginTemplate = () => `
     </div>
     <div class="content">
       <h1>Login</h1>
-      <form action="/login" method="POST">
+      <form id="login-form" action="/login" method="POST">
         <input type="email" name="email" placeholder="Email" required>
         <input type="password" name="password" placeholder="Password" required>
         <button type="submit">Login</button>

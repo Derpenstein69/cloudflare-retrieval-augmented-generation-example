@@ -9,74 +9,37 @@ import type { Env } from '../types'
 const auth = new Hono<{ Bindings: Env }>()
 
 auth.post('/login', async (c) => {
-  const { email, password } = await c.req.json();
-  if (!email || !password) return c.text("Missing email or password", 400);
-
-  try {
-    // Debug: Log email being searched
-    console.log('Attempting login for email:', email);
-
-    const userStr = await c.env.USERS_KV.get(email);
-    if (!userStr) {
-      console.log('User not found in KV store');
-      return c.text("Invalid email or password", 401);
-    }
-
-    // Debug: Log stored user data (without password)
-    const user = JSON.parse(userStr);
-    console.log('Found user:', { email: user.email });
-
-    // If the stored password is not hashed (legacy data), update it
-    if (!user.password.includes('=')) { // Simple check for base64 encoding
-      console.log('Converting legacy password to hashed format');
-      const hashedPassword = await hashPassword(user.password);
-      user.password = hashedPassword;
-      await c.env.USERS_KV.put(email, JSON.stringify(user));
-    }
-
-    const hashedInputPassword = await hashPassword(password);
-    console.log('Password comparison:', {
-      storedLength: user.password.length,
-      inputLength: hashedInputPassword.length,
-      matches: hashedInputPassword === user.password
-    });
-
-    const isValid = hashedInputPassword === user.password;
-    
-    if (!isValid) {
-      console.log('Password verification failed');
-      return c.text("Invalid email or password", 401);
-    }
-
-    // Get or generate JWT secret
-    let jwtSecret = await c.env.USERS_KV.get('JWT_SECRET');
-    if (!jwtSecret) {
-      jwtSecret = generateSecureKey(64);
-      await c.env.USERS_KV.put('JWT_SECRET', jwtSecret);
-    }
-
-    // Changed jwt.sign to sign
-    const token = await sign({ email }, jwtSecret);
-    setCookie(c, 'token', token, {
-      httpOnly: true,
-      secure: true,
-      path: '/',
-      sameSite: 'Strict'
-    });
-
-    const sessionId = generateSecureKey();
-    setCookie(c, 'session', sessionId, {
-      httpOnly: true,
-      secure: true,
-      path: '/'
-    });
-
-    return c.text("Login successful", 200);
-  } catch (err) {
-    console.error('Login error:', err);
-    return c.text("An error occurred during login", 500);
+  const formData = await c.req.parseBody();
+  const { email, password } = formData;
+  
+  if (!email || !password) {
+    return c.text('Email and password are required', 400);
   }
-})
+
+  const userData = await c.env.USERS_KV.get(email);
+  if (!userData) {
+    return c.text('Invalid email or password', 401);
+  }
+
+  const user = JSON.parse(userData);
+  const hashedPassword = await hashPassword(password as string);
+  
+  if (user.password !== hashedPassword) {
+    return c.text('Invalid email or password', 401);
+  }
+
+  const sessionId = generateSecureKey();
+  await c.env.SESSIONS_DO.get(sessionId).then(obj => obj.save(email));
+  
+  setCookie(c, 'session', sessionId, {
+    httpOnly: true,
+    secure: true,
+    path: '/',
+    sameSite: 'Strict'
+  });
+
+  return c.redirect('/');
+});
 
 auth.get('/login', (c) => {
   return c.html(loginTemplate())
