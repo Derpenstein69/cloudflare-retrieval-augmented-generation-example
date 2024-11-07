@@ -16,7 +16,7 @@ export const notesTemplate = () => `
         if (!response.ok) throw new Error('Failed to load notes');
         const notes = await response.json();
         document.getElementById('notes-list').innerHTML = notes.length ? 
-          notes.map(note => `<div class="note">${note.text}</div>`).join('') :
+          notes.map(note => \`<div class="note">\${note.text}</div>\`).join('') :
           '<p>No notes yet</p>';
       } catch (error) {
         console.error('Error loading notes:', error);
