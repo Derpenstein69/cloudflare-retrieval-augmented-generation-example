@@ -32,3 +32,8 @@ id = "5218b724e0304713bcb7c036f576b433"
 bindings = [
   { name = "SESSIONS_DO", class_name = "SessionDO" }
 ]
+
+[migrations]
+[[migrations]]
+tag = "v1"
+new_classes = ["SessionDO"]
