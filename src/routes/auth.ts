@@ -54,8 +54,10 @@ auth.post('/login', async (c) => {
 
 auth.get('/login', async (c) => {
   const sessionId = getCookie(c, 'session');
+  console.log('Session ID:', sessionId);
   if (sessionId) {
     const userEmail = await c.env.SESSIONS_DO.get(sessionId);
+    console.log('User Email:', userEmail);
     if (userEmail) {
       return c.redirect('/');
     }

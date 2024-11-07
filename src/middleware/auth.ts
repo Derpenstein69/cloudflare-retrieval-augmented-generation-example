@@ -26,3 +26,14 @@ export const validateEnv = (env: Env) => {
   if (!env.USERS_KV) throw new Error('USERS_KV is not configured');
   // Removed JWT_SECRET check since we're using KV-stored secret
 };
+
+auth.get('/login', async (c) => {
+  const sessionId = getCookie(c, 'session');
+  if (sessionId) {
+    const userEmail = await c.env.SESSIONS_DO.get(sessionId);
+    if (userEmail) {
+      return c.redirect('/');
+    }
+  }
+  return c.html(loginTemplate());
+});
