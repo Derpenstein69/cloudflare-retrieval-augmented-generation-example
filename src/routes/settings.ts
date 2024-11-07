@@ -2,11 +2,12 @@ import { Hono } from 'hono';
 import { settingsTemplate } from '../components/settings';
 import { hashPassword } from '../utils';
 import type { Env } from '../types';
+import { getCookie } from 'hono/cookie';
 
 const settings = new Hono<{ Bindings: Env }>();
 
 settings.get('/settings', async (c) => {
-  const sessionId = c.req.cookie('session');
+  const sessionId = getCookie(c, 'session');
   if (!sessionId) {
     return c.redirect('/login');
   }
@@ -25,7 +26,7 @@ settings.get('/settings', async (c) => {
 });
 
 settings.post('/settings', async (c) => {
-  const sessionId = c.req.cookie('session');
+  const sessionId = getCookie(c, 'session');
   if (!sessionId) {
     return c.json({ error: 'Unauthorized' }, 401);
   }

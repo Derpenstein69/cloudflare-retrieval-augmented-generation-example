@@ -194,9 +194,26 @@ export const homeTemplate = () => `
     });
 
     async function logout() {
-      await fetch('/logout', { method: 'POST' });
-      window.location.href = '/login';
+      try {
+        const response = await fetch('/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          window.location.href = '/login';
+        } else {
+          console.error('Logout failed:', await response.text());
+          alert('Failed to logout. Please try again.');
+        }
+      } catch (error) {
+        console.error('Logout error:', error);
+        alert('Failed to logout. Please try again.');
+      }
     }
+
     document.addEventListener('click', function(event) {
       const menu = document.getElementById('user-menu');
       if (!event.target.closest('.user-icon')) {

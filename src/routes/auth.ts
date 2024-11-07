@@ -64,6 +64,13 @@ auth.post('/login', async (c) => {
       sameSite: 'Strict'
     });
 
+    const sessionId = generateSecureKey();
+    setCookie(c, 'session', sessionId, {
+      httpOnly: true,
+      secure: true,
+      path: '/'
+    });
+
     return c.text("Login successful", 200);
   } catch (err) {
     console.error('Login error:', err);
@@ -119,13 +126,24 @@ auth.get('/signup', (c) => {
 })
 
 auth.post('/logout', async (c) => {
-  setCookie(c, 'token', '', {
-    httpOnly: true,
-    secure: true,
-    path: '/',
-    maxAge: 0
-  });
-  return c.redirect('/login');
-})
+  const sessionId = getCookie(c, 'session');
+  if (sessionId) {
+    // Clear the session from DO
+    await c.env.SESSIONS_DO.get(sessionId).then(async (obj) => {
+      if (obj) {
+        await c.env.SESSIONS_DO.delete(sessionId);
+      }
+    });
+
+    // Clear the cookie
+    setCookie(c, 'session', '', {
+      httpOnly: true,
+      secure: true,
+      path: '/',
+      maxAge: 0
+    });
+  }
+  return c.json({ success: true });
+});
 
 export default auth
