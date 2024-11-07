@@ -1,4 +1,3 @@
-
 export const settingsTemplate = () => `
   <div class="settings-container">
     <h1>Account Settings</h1>
@@ -18,6 +17,14 @@ export const settingsTemplate = () => `
       <div class="form-group">
         <label for="confirm-password">Confirm New Password</label>
         <input type="password" id="confirm-password" name="confirm_password">
+      </div>
+      <div>
+        <label>Theme Preference</label>
+        <select id="theme-select" onchange="updateThemePreference()">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
       </div>
       <button type="submit">Save Changes</button>
     </form>
@@ -48,5 +55,15 @@ export const settingsTemplate = () => `
         document.getElementById('email').value = data.email;
       }
     })();
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const savedTheme = localStorage.getItem('theme') || 'system';
+      document.getElementById('theme-select').value = savedTheme;
+    });
+
+    function updateThemePreference() {
+      const theme = document.getElementById('theme-select').value;
+      setTheme(theme);
+    }
   </script>
 `;

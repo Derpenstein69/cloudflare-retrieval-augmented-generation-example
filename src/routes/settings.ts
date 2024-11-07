@@ -55,4 +55,13 @@ settings.post('/settings', async (c) => {
   return c.json({ message: 'Settings updated successfully' });
 });
 
+settings.get('/', async (c) => {
+  try {
+    return c.html(settingsTemplate())
+  } catch (err) {
+    console.error('Settings error:', err)
+    return c.text('Error loading settings', 500)
+  }
+})
+
 export default settings;
