@@ -1,4 +1,3 @@
-
 export const sharedStyles = `
   <style>
     body {
@@ -6,6 +5,18 @@ export const sharedStyles = `
       padding: 0;
       background-color: var(--primary-color);
       color: var(--text-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .content {
+      background-color: var(--secondary-color);
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
     }
     .action-bar {
       display: flex;
@@ -26,7 +37,6 @@ export const sharedStyles = `
     }
     .theme-toggle {
       cursor: pointer;
-      margin-right: 20px;
     }
     :root {
       --primary-color: white;
@@ -49,10 +59,6 @@ export const sharedStyles = `
       --primary-color: #1a1a1a;
       --secondary-color: #333;
       --text-color: white;
-    }
-    .content {
-      margin-top: 50px;
-      padding: 20px;
     }
   </style>
 `;

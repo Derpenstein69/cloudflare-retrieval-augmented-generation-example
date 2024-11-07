@@ -9,6 +9,43 @@ import type { Env } from './types'
 
 const app = new Hono<{ Bindings: Env }>()
 
+// Add error handling middleware
+app.onError((err, c) => {
+  console.error('Application error:', err);
+  return c.html(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Error - RusstCorp</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+      </head>
+      <body>
+        <h1>Something went wrong</h1>
+        <p>We're sorry, but something went wrong. Please try again later.</p>
+        <a href="/">Return to Home</a>
+      </body>
+    </html>
+  `, 500);
+});
+
+// Add not found handler
+app.notFound((c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>404 Not Found - RusstCorp</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+      </head>
+      <body>
+        <h1>Page Not Found</h1>
+        <p>The page you're looking for doesn't exist.</p>
+        <a href="/">Return to Home</a>
+      </body>
+    </html>
+  `, 404);
+});
+
 app.use(cors())
 app.use('*', async (c, next) => {
   try {
