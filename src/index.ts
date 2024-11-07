@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { cookie } from 'hono/cookie'; // Add this import
+import { getCookie, getSignedCookie, setCookie, setSignedCookie, deleteCookie } from 'hono/cookie'
 import { authMiddleware, validateEnv } from './middleware/auth'
 import authRoutes from './routes/auth'
 import notesRoutes from './routes/notes'
@@ -56,8 +56,18 @@ app.notFound((c) => {
 });
 
 app.use(cors())
-app.use(cookie()); // Add this line to use the cookie middleware
+
 app.use('*', async (c, next) => {
+  // Set a cookie
+  setCookie(c, 'session', 'session_value', { path: '/', httpOnly: true });
+
+  // Get a cookie
+  const sessionCookie = getCookie(c, 'session');
+  console.log('Session Cookie:', sessionCookie);
+
+  // Delete a cookie
+  deleteCookie(c, 'session');
+
   try {
     validateEnv(c.env);
     await next();
