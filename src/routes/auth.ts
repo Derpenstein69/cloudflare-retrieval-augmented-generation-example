@@ -57,8 +57,13 @@ auth.get('/login', async (c) => {
   const sessionId = getCookie(c, 'session');
   if (sessionId) {
     try {
-      const userEmail = await c.env.SESSIONS_DO.get(sessionId);
-      if (userEmail) {
+      const sessionDOId = c.env.SESSIONS_DO.idFromName(sessionId);
+      const sessionDO = c.env.SESSIONS_DO.get(sessionDOId);
+      
+      const response = await sessionDO.fetch(new Request('https://dummy-url/get'));
+      const userEmail = await response.text();
+      
+      if (userEmail && userEmail !== 'null') {
         return c.redirect('/');
       }
     } catch (error) {
