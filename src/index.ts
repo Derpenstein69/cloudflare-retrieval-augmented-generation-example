@@ -20,13 +20,15 @@ app.use('*', async (c, next) => {
   }
 });
 
-// Apply auth check to all routes
-app.use('*', checkAuth)
+// Remove the global auth check
+// app.use('*', checkAuth)  <- Remove this line
 
-app.route('/', authRoutes)
-app.route('/', notesRoutes)
-app.route('/', settingsRoutes)
+// Apply auth only to specific routes
+app.route('/auth', authRoutes)
+app.route('/notes', checkAuth, notesRoutes)
+app.route('/settings', checkAuth, settingsRoutes)
 
+// Protect the home page
 app.get('/', checkAuth, async (c) => {
   try {
     const html = homeTemplate();

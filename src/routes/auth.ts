@@ -54,12 +54,15 @@ auth.post('/login', async (c) => {
 
 auth.get('/login', async (c) => {
   const sessionId = getCookie(c, 'session');
-  console.log('Session ID:', sessionId);
   if (sessionId) {
-    const userEmail = await c.env.SESSIONS_DO.get(sessionId);
-    console.log('User Email:', userEmail);
-    if (userEmail) {
-      return c.redirect('/');
+    try {
+      const userEmail = await c.env.SESSIONS_DO.get(sessionId);
+      if (userEmail) {
+        return c.redirect('/');
+      }
+    } catch (error) {
+      console.error('Session check error:', error);
+      // Continue to login page if session check fails
     }
   }
   return c.html(loginTemplate());
