@@ -33,7 +33,6 @@ bindings = [
   { name = "SESSIONS_DO", class_name = "SessionDO" }
 ]
 
-[migrations]
 [[migrations]]
 tag = "v1"
 new_classes = ["SessionDO"]

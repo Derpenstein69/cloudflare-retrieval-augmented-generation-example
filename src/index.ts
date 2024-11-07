@@ -104,20 +104,36 @@ app.get('/query', async (c) => {
   return response ? c.text((response as any).response) : c.text("We were unable to generate output", 500)
 })
 
-app.get('/', async (c) => {
+const checkAuth = async (c, next) => {
+  const token = c.req.cookie('token');
+  if (!token) {
+    return c.redirect('/login');
+  }
+
+  try {
+    await jwt.verify(token, c.env.JWT_SECRET);
+    await next();
+  } catch (e) {
+    return c.redirect('/login');
+  }
+};
+
+app.get('/', checkAuth, async (c) => {
   return c.html(`
     <style>
       body {
         margin: 0;
         padding: 0;
+        background-color: var(--primary-color);
+        color: var(--text-color);
       }
       .action-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
         padding: 10px;
-        background-color: #333;
-        color: white;
+        background-color: var(--secondary-color);
+        color: var(--text-color);
         position: fixed;
         top: 0;
         left: 0;
@@ -128,7 +144,7 @@ app.get('/', async (c) => {
         text-align: center;
         flex-grow: 1;
       }
-      .user-icon, .menu-toggle {
+      .user-icon, .menu-toggle, .theme-toggle {
         cursor: pointer;
         position: relative;
       }
@@ -153,21 +169,20 @@ app.get('/', async (c) => {
       }
       .sidebar {
         width: 200px;
-        background-color: #333;
-        color: white;
+        background-color: var(--secondary-color);
+        color: var(--text-color);
         position: fixed;
-        top: 50px; /* Adjusted to be below the action bar */
+        top: 40px; /* Adjusted to be directly below the action bar */
         left: 0;
-        height: calc(100% - 50px); /* Adjusted to account for the action bar height */
-        padding: 10px;
-        display: none;
+        height: calc(100% - 40px); /* Adjusted to account for the action bar height */
+        padding: 0; /* Removed padding */
       }
       .sidebar-item {
         padding: 10px;
         cursor: pointer;
       }
       .sidebar-item:hover {
-        background-color: #444;
+        background-color: #c0c0c0; /* Slightly darker grey for hover effect */
       }
       .content {
         margin-top: 50px; /* Adjusted to account for the action bar height */
@@ -177,10 +192,21 @@ app.get('/', async (c) => {
       .content.expanded {
         margin-left: 200px;
       }
+      :root {
+        --primary-color: white;
+        --secondary-color: #d3d3d3;
+        --text-color: black;
+      }
+      .dark-mode {
+        --primary-color: #1a1a1a;
+        --secondary-color: #333;
+        --text-color: white;
+      }
     </style>
     <div class="action-bar">
       <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
       <div class="title">RusstCorp</div>
+      <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
       <div class="user-icon" onclick="toggleMenu()">👤
         <ul class="menu" id="user-menu">
           <li class="menu-item" onclick="alert('Profile')">Profile</li>
@@ -210,6 +236,9 @@ app.get('/', async (c) => {
           sidebar.style.display = 'block';
           content.classList.add('expanded');
         }
+      }
+      function toggleTheme() {
+        document.documentElement.classList.toggle('dark-mode');
       }
       document.addEventListener('click', function(event) {
         const menu = document.getElementById('user-menu');
