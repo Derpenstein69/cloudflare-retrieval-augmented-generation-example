@@ -1,4 +1,3 @@
-
 import { jwt } from 'hono/jwt'
 import { getCookie } from 'hono/cookie'
 import type { Env } from '../types'
@@ -23,6 +22,6 @@ export const checkAuth = async (c, next) => {
 };
 
 export const validateEnv = (env: Env) => {
-  if (!env.JWT_SECRET) throw new Error('JWT_SECRET is not set');
   if (!env.USERS_KV) throw new Error('USERS_KV is not configured');
+  // Removed JWT_SECRET check since we're using KV-stored secret
 };

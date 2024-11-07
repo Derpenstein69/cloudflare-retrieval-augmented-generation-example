@@ -23,7 +23,16 @@ app.route('/', authRoutes)
 app.route('/', notesRoutes)
 
 app.get('/', checkAuth, async (c) => {
-  return c.html(homeTemplate());
+  try {
+    const html = homeTemplate();
+    if (!html) {
+      throw new Error('Failed to generate home template');
+    }
+    return c.html(html);
+  } catch (err) {
+    console.error('Error rendering home template:', err);
+    return c.text('Internal Server Error', 500);
+  }
 })
 
 app.get('/query', async (c) => {
