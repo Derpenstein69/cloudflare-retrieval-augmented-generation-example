@@ -20,8 +20,7 @@ profile.get('/profile', async (c) => {
     return c.json({ error: 'User not found' }, 404);
   }
 
-  const user = JSON.parse(userData);
-  return c.json(user);
+  return c.html(profileTemplate()); // Return the profile template
 });
 
 profile.post('/profile', async (c) => {

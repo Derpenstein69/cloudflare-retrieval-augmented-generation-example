@@ -1,4 +1,3 @@
-
 export const notesTemplate = () => `
   <div>
     <h2>Notes</h2>
@@ -13,7 +12,7 @@ export const notesTemplate = () => `
   <script>
     async function loadNotes() {
       try {
-        const response = await fetch('/notes/list');
+        const response = await fetch('/notes.json'); // Fetch notes from the correct path
         if (!response.ok) throw new Error('Failed to load notes');
         const notes = await response.json();
         document.getElementById('notes-list').innerHTML = notes.length ? 
@@ -29,7 +28,7 @@ export const notesTemplate = () => `
       event.preventDefault();
       const form = event.target;
       try {
-        const response = await fetch('/notes/create', {
+        const response = await fetch('/notes', { // Use the correct path for creating notes
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: form.text.value })

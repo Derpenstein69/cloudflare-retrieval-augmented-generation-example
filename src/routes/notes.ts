@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { methodOverride } from 'hono/method-override'
+import { notesTemplate } from '../components/notes' // Add this import
 import type { Env } from '../types'
 
 const notes = new Hono<{ Bindings: Env }>()
@@ -11,9 +12,7 @@ notes.get('/notes.json', async (c) => {
 })
 
 notes.get('/notes', async (c) => {
-  const query = `SELECT * FROM notes`
-  const { results } = await c.env.DATABASE.prepare(query).all()
-  return c.json(results);
+  return c.html(notesTemplate()); // Return the notes template
 })
 
 notes.use('/notes/:id', methodOverride({ app: notes }))

@@ -1,4 +1,3 @@
-
 export const profileTemplate = () => `
   <div class="profile-container">
     <h1>Profile</h1>

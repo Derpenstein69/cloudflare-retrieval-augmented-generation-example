@@ -112,32 +112,14 @@ auth.all('/signup', async (c) => {
   }
 })
 
-auth.all('/logout', async (c) => {
-  if (c.req.method !== 'POST') {
-    return c.text('Method not allowed', 405);
+auth.post('/logout', async (c) => {
+  const sessionId = c.req.cookie('session');
+  if (sessionId) {
+    await c.env.SESSIONS_DO.delete(sessionId);
+    c.res.cookie('session', '', { maxAge: 0 });
   }
-  try {
-    const sessionId = getCookie(c, 'session');
-    if (sessionId) {
-      await c.env.SESSIONS_DO.get(sessionId).then(async (obj) => {
-        if (obj) {
-          await c.env.SESSIONS_DO.delete(sessionId);
-        }
-      });
-
-      setCookie(c, 'session', '', {
-        httpOnly: true,
-        secure: true,
-        path: '/',
-        maxAge: 0
-      });
-    }
-    return c.json({ success: true });
-  } catch (error) {
-    console.error('Logout error:', error);
-    return c.json({ error: 'Failed to logout' }, 500);
-  }
-})
+  return c.json({ message: 'Logged out successfully' });
+});
 
 // Add a catch-all route for unhandled paths
 auth.all('*', async (c) => {
