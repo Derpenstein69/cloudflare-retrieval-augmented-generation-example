@@ -223,6 +223,18 @@ app.get('/', checkAuth, async (c) => {
         --secondary-color: #d3d3d3;
         --text-color: black;
       }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --primary-color: #1a1a1a;
+          --secondary-color: #333;
+          --text-color: white;
+        }
+      }
+      .light-mode {
+        --primary-color: white;
+        --secondary-color: #d3d3d3;
+        --text-color: black;
+      }
       .dark-mode {
         --primary-color: #1a1a1a;
         --secondary-color: #333;
@@ -263,9 +275,58 @@ app.get('/', checkAuth, async (c) => {
           content.classList.add('expanded');
         }
       }
-      function toggleTheme() {
-        document.documentElement.classList.toggle('dark-mode');
+      // Theme management
+      function getSystemTheme() {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       }
+
+      function setTheme(theme) {
+        const root = document.documentElement;
+        root.classList.remove('light-mode', 'dark-mode');
+        if (theme !== 'system') {
+          root.classList.add(theme + '-mode');
+        }
+        localStorage.setItem('theme', theme);
+        updateThemeToggleIcon(theme);
+      }
+
+      function updateThemeToggleIcon(theme) {
+        const icon = document.querySelector('.theme-toggle');
+        icon.textContent = theme === 'system' ? '🌓' : (theme === 'dark' ? '����' : '☀️');
+      }
+
+      function toggleTheme() {
+        const currentTheme = localStorage.getItem('theme') || 'system';
+        const themes = ['system', 'light', 'dark'];
+        const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+        const newTheme = themes[nextIndex];
+        setTheme(newTheme);
+        
+        if (newTheme === 'system') {
+          // If system theme, apply the system preference
+          const systemTheme = getSystemTheme();
+          document.documentElement.classList.toggle('dark-mode', systemTheme === 'dark');
+        }
+      }
+
+      // Initialize theme
+      document.addEventListener('DOMContentLoaded', () => {
+        const savedTheme = localStorage.getItem('theme') || 'system';
+        setTheme(savedTheme);
+        
+        if (savedTheme === 'system') {
+          const systemTheme = getSystemTheme();
+          document.documentElement.classList.toggle('dark-mode', systemTheme === 'dark');
+        }
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+          if (localStorage.getItem('theme') === 'system') {
+            document.documentElement.classList.toggle('dark-mode', e.matches);
+          }
+        });
+      });
+
       async function logout() {
         await fetch('/logout', { method: 'POST' });
         window.location.href = '/login';
