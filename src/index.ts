@@ -105,7 +105,7 @@ app.get('/query', async (c) => {
 })
 
 const checkAuth = async (c, next) => {
-  const token = c.req.cookie('token');
+  const token = c.req.cookies.get('token');
   if (!token) {
     return c.redirect('/login');
   }
