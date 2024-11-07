@@ -63,7 +63,7 @@ app.get('/write', async (c) => {
   return c.html(write);
 })
 
-app.get('/', async (c) => {
+app.get('/query', async (c) => {
   const question = c.req.query('text') || "What is the square root of 9?"
 
   const embeddings = await c.env.AI.run('@cf/baai/bge-base-en-v1.5', { text: question })
@@ -97,6 +97,10 @@ app.get('/', async (c) => {
   ) as AiTextGenerationOutput
 
   return response ? c.text((response as any).response) : c.text("We were unable to generate output", 500)
+})
+
+app.get('/', async (c) => {
+  return c.html('<h1>Welcome to the Home Page</h1>');
 })
 
 export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {

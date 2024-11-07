@@ -52,8 +52,8 @@ $ npm run deploy
 ## Usage
 
 After deploying, you can use the following routes:
-
-- `/` is an endpoint that accepts a `?text` query param and returns a response from the model.
+-`/` home page
+- `/query` is an endpoint that accepts a `?text` query param and returns a response from the model.
 - `/ui` is a form UI that allows you to ask the AI a question and get a response.
 - `/write` is a form UI that allows you to add a note to the AI's knowledge base.
 - `/notes` is a list of all the notes in the AI's knowledge base.
