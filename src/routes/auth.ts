@@ -70,40 +70,46 @@ auth.get('/login', async (c) => {
 
 auth.post('/signup', async (c) => {
   try {
-    const { email, password } = await c.req.json();
-    if (!email || !password) return c.text("Missing email or password", 400);
-    if (password.length < 8) return c.text("Password must be at least 8 characters", 400);
+    const formData = await c.req.parseBody();
+    const { email, password, confirm_password } = formData;
+    
+    if (!email || !password) {
+      return c.json({ error: "Missing email or password" }, 400);
+    }
+    
+    if (password !== confirm_password) {
+      return c.json({ error: "Passwords do not match" }, 400);
+    }
 
-    const existing = await c.env.USERS_KV.get(email);
+    if (typeof password === 'string' && password.length < 8) {
+      return c.json({ error: "Password must be at least 8 characters" }, 400);
+    }
+
+    const existing = await c.env.USERS_KV.get(email as string);
     if (existing) {
-      return c.text("Email already registered", 400);
+      return c.json({ error: "Email already registered" }, 400);
     }
 
-    const hashedPassword = await hashPassword(password);
-    console.log('Signup: Storing hashed password:', hashedPassword); // Debug log
+    const hashedPassword = await hashPassword(password as string);
     const user = { email, password: hashedPassword };
-    await c.env.USERS_KV.put(email, JSON.stringify(user));
+    await c.env.USERS_KV.put(email as string, JSON.stringify(user));
 
-    // Ensure JWT secret exists
-    let jwtSecret = await c.env.USERS_KV.get('JWT_SECRET');
-    if (!jwtSecret) {
-      jwtSecret = generateSecureKey(64);
-      await c.env.USERS_KV.put('JWT_SECRET', jwtSecret);
-    }
+    // Create session after signup
+    const sessionId = generateSecureKey();
+    await c.env.SESSIONS_DO.get(sessionId).then(obj => obj.save(email));
 
-    // Changed jwt.sign to sign
-    const token = await sign({ email }, jwtSecret);
-    setCookie(c, 'token', token, {
+    setCookie(c, 'session', sessionId, {
       httpOnly: true,
       secure: true,
       path: '/',
-      sameSite: 'Strict'
+      sameSite: 'Strict',
+      maxAge: 60 * 60 * 24 // 24 hours
     });
 
-    return c.text("Signup successful", 201);
+    return c.redirect('/');
   } catch (err) {
     console.error('Signup error:', err);
-    return c.text("An error occurred during signup", 500);
+    return c.json({ error: "An error occurred during signup" }, 500);
   }
 })
 

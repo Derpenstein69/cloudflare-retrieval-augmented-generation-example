@@ -1,4 +1,3 @@
-
 import { sharedStyles, themeScript } from './shared';
 
 export const signupTemplate = () => `
@@ -17,10 +16,10 @@ export const signupTemplate = () => `
     </div>
     <div class="content">
       <h1>Sign Up</h1>
-      <form action="/signup" method="POST">
+      <form id="signup-form" action="/signup" method="POST">
         <input type="email" name="email" placeholder="Email" required>
-        <input type="password" name="password" placeholder="Password" required>
-        <input type="password" name="confirm_password" placeholder="Confirm Password" required>
+        <input type="password" name="password" placeholder="Password" minlength="8" required>
+        <input type="password" name="confirm_password" placeholder="Confirm Password" minlength="8" required>
         <button type="submit">Sign Up</button>
       </form>
       <p>Already have an account? <a href="/login">Login</a></p>
