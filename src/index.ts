@@ -100,7 +100,110 @@ app.get('/query', async (c) => {
 })
 
 app.get('/', async (c) => {
-  return c.html('<h1>Welcome to the Home Page</h1>');
+  return c.html(`
+    <style>
+      .action-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        background-color: #333;
+        color: white;
+      }
+      .title {
+        text-align: center;
+        flex-grow: 1;
+      }
+      .user-icon, .menu-toggle {
+        cursor: pointer;
+        position: relative;
+      }
+      .menu {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background-color: white;
+        color: black;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .menu-item {
+        padding: 10px;
+        cursor: pointer;
+      }
+      .menu-item:hover {
+        background-color: #f0f0f0;
+      }
+      .sidebar {
+        width: 200px;
+        background-color: #333;
+        color: white;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100%;
+        padding: 10px;
+        display: none;
+      }
+      .sidebar-item {
+        padding: 10px;
+        cursor: pointer;
+      }
+      .sidebar-item:hover {
+        background-color: #444;
+      }
+      .content {
+        margin-left: 0;
+        transition: margin-left 0.3s;
+      }
+      .content.expanded {
+        margin-left: 200px;
+      }
+    </style>
+    <div class="action-bar">
+      <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
+      <div class="title">RusstCorp</div>
+      <div class="user-icon" onclick="toggleMenu()">👤
+        <ul class="menu" id="user-menu">
+          <li class="menu-item" onclick="alert('Profile')">Profile</li>
+          <li class="menu-item" onclick="alert('Settings')">Settings</li>
+          <li class="menu-item" onclick="alert('Logout')">Logout</li>
+        </ul>
+      </div>
+    </div>
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-item" onclick="location.href='/notes'">Notes</div>
+    </div>
+    <div class="content" id="content">
+      <h1>Welcome to the Home Page</h1>
+    </div>
+    <script>
+      function toggleMenu() {
+        const menu = document.getElementById('user-menu');
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+      }
+      function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const content = document.getElementById('content');
+        if (sidebar.style.display === 'block') {
+          sidebar.style.display = 'none';
+          content.classList.remove('expanded');
+        } else {
+          sidebar.style.display = 'block';
+          content.classList.add('expanded');
+        }
+      }
+      document.addEventListener('click', function(event) {
+        const menu = document.getElementById('user-menu');
+        if (!event.target.closest('.user-icon')) {
+          menu.style.display = 'none';
+        }
+      });
+    </script>
+  `);
 })
 
 export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
