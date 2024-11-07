@@ -1,4 +1,3 @@
-
 import { Hono } from 'hono'
 import { jwt } from 'hono/jwt'
 import { setCookie } from 'hono/cookie'
@@ -12,15 +11,29 @@ auth.post('/login', async (c) => {
   if (!email || !password) return c.text("Missing email or password", 400);
 
   try {
+    // Debug: Log email being searched
+    console.log('Attempting login for email:', email);
+
     const userStr = await c.env.USERS_KV.get(email);
     if (!userStr) {
+      console.log('User not found in KV store');
       return c.text("Invalid email or password", 401);
     }
 
+    // Debug: Log stored user data (without password)
     const user = JSON.parse(userStr);
-    const isValid = await verifyPassword(password, user.password);
+    console.log('Found user:', { email: user.email });
+
+    const hashedInputPassword = await hashPassword(password);
+    console.log('Password comparison:', {
+      stored: user.password,
+      input: hashedInputPassword
+    });
+
+    const isValid = hashedInputPassword === user.password;
     
     if (!isValid) {
+      console.log('Password verification failed');
       return c.text("Invalid email or password", 401);
     }
 
