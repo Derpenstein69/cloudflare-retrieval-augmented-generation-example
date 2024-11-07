@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
-import { jwt } from 'hono/jwt'
-import { setCookie } from 'hono/cookie'
-import { hashPassword, verifyPassword, generateSecureKey } from '../utils'
+import { getCookie, setCookie } from 'hono/cookie'
+import { sign } from 'hono/jwt'  // Changed this line
+import { hashPassword, generateSecureKey } from '../utils'
 import type { Env } from '../types'
 
 const auth = new Hono<{ Bindings: Env }>()
@@ -24,10 +24,18 @@ auth.post('/login', async (c) => {
     const user = JSON.parse(userStr);
     console.log('Found user:', { email: user.email });
 
+    // If the stored password is not hashed (legacy data), update it
+    if (!user.password.includes('=')) { // Simple check for base64 encoding
+      console.log('Converting legacy password to hashed format');
+      const hashedPassword = await hashPassword(user.password);
+      user.password = hashedPassword;
+      await c.env.USERS_KV.put(email, JSON.stringify(user));
+    }
+
     const hashedInputPassword = await hashPassword(password);
     console.log('Password comparison:', {
-      stored: user.password,
-      input: hashedInputPassword,
+      storedLength: user.password.length,
+      inputLength: hashedInputPassword.length,
       matches: hashedInputPassword === user.password
     });
 
@@ -45,7 +53,8 @@ auth.post('/login', async (c) => {
       await c.env.USERS_KV.put('JWT_SECRET', jwtSecret);
     }
 
-    const token = await jwt.sign({ email }, jwtSecret, { expiresIn: '1h' });
+    // Changed jwt.sign to sign
+    const token = await sign({ email }, jwtSecret);
     setCookie(c, 'token', token, {
       httpOnly: true,
       secure: true,
@@ -162,7 +171,8 @@ auth.post('/signup', async (c) => {
       await c.env.USERS_KV.put('JWT_SECRET', jwtSecret);
     }
 
-    const token = await jwt.sign({ email }, jwtSecret, { expiresIn: '1h' });
+    // Changed jwt.sign to sign
+    const token = await sign({ email }, jwtSecret);
     setCookie(c, 'token', token, {
       httpOnly: true,
       secure: true,

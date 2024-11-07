@@ -1,4 +1,4 @@
-import { jwt } from 'hono/jwt'
+import { verify } from 'hono/jwt'  // Changed this line
 import { getCookie } from 'hono/cookie'
 import type { Env } from '../types'
 
@@ -14,7 +14,8 @@ export const checkAuth = async (c, next) => {
       throw new Error('JWT secret not found');
     }
     
-    await jwt.verify(token, jwtSecret);
+    // Changed jwt.verify to verify
+    await verify(token, jwtSecret);
     await next();
   } catch (e) {
     return c.redirect('/login');
