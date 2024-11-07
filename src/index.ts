@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { checkAuth, validateEnv } from './middleware/auth'
 import authRoutes from './routes/auth'
 import notesRoutes from './routes/notes'
+import settingsRoutes from './routes/settings'
 import { homeTemplate } from './components/home'
 import type { Env } from './types'
 
@@ -21,6 +22,7 @@ app.use('*', async (c, next) => {
 
 app.route('/', authRoutes)
 app.route('/', notesRoutes)
+app.route('/', settingsRoutes)
 
 app.get('/', checkAuth, async (c) => {
   try {

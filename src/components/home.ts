@@ -1,4 +1,3 @@
-
 export const homeTemplate = () => `
   <style>
     body {
@@ -55,7 +54,7 @@ export const homeTemplate = () => `
       top: 40px; /* Adjusted to be directly below the action bar */
       left: 0;
       height: calc(100% - 40px); /* Adjusted to account for the action bar height */
-      padding: 0; /* Removed padding */
+      display: block; /* Changed from none to block for initial state */
     }
     .sidebar-item {
       padding: 10px;
@@ -66,11 +65,12 @@ export const homeTemplate = () => `
     }
     .content {
       margin-top: 50px; /* Adjusted to account for the action bar height */
-      margin-left: 0;
+      margin-left: 200px; /* Set initial margin to match sidebar width */
       transition: margin-left 0.3s;
+      padding: 20px; /* Add some padding */
     }
-    .content.expanded {
-      margin-left: 200px;
+    .content.collapsed {
+      margin-left: 0; /* Changed from expanded to collapsed pattern */
     }
     :root {
       --primary-color: white;
@@ -101,8 +101,7 @@ export const homeTemplate = () => `
     <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
     <div class="user-icon" onclick="toggleMenu()">👤
       <ul class="menu" id="user-menu">
-        <li class="menu-item" onclick="alert('Profile')">Profile</li>
-        <li class="menu-item" onclick="alert('Settings')">Settings</li>
+        <li class="menu-item" onclick="location.href='/settings/account'">Account Settings</li>
         <li class="menu-item" onclick="logout()">Logout</li>
       </ul>
     </div>
@@ -121,12 +120,12 @@ export const homeTemplate = () => `
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
       const content = document.getElementById('content');
-      if (sidebar.style.display === 'block') {
-        sidebar.style.display = 'none';
-        content.classList.remove('expanded');
-      } else {
+      if (sidebar.style.display === 'none') {
         sidebar.style.display = 'block';
-        content.classList.add('expanded');
+        content.classList.remove('collapsed');
+      } else {
+        sidebar.style.display = 'none';
+        content.classList.add('collapsed');
       }
     }
     // Theme management
@@ -146,7 +145,18 @@ export const homeTemplate = () => `
 
     function updateThemeToggleIcon(theme) {
       const icon = document.querySelector('.theme-toggle');
-      icon.textContent = theme === 'system' ? '🌓' : (theme === 'dark' ? '����' : '☀️');
+      // Fixed the icon characters
+      switch(theme) {
+        case 'system':
+          icon.textContent = '🌓';
+          break;
+        case 'dark':
+          icon.textContent = '🌙';
+          break;
+        case 'light':
+          icon.textContent = '☀️';
+          break;
+      }
     }
 
     function toggleTheme() {
