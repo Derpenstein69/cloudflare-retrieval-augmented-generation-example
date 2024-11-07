@@ -27,7 +27,8 @@ auth.post('/login', async (c) => {
     const hashedInputPassword = await hashPassword(password);
     console.log('Password comparison:', {
       stored: user.password,
-      input: hashedInputPassword
+      input: hashedInputPassword,
+      matches: hashedInputPassword === user.password
     });
 
     const isValid = hashedInputPassword === user.password;
@@ -150,6 +151,7 @@ auth.post('/signup', async (c) => {
     }
 
     const hashedPassword = await hashPassword(password);
+    console.log('Signup: Storing hashed password:', hashedPassword); // Debug log
     const user = { email, password: hashedPassword };
     await c.env.USERS_KV.put(email, JSON.stringify(user));
 
