@@ -23,3 +23,12 @@ index_name = "russtcorp-ai-vector-index"
 name = "rag"
 binding = "RAG_WORKFLOW"
 class_name = "RAGWorkflow"
+
+[[kv_namespaces]]
+kv_namespaces = [
+  { binding = "USERS_KV", id = "5218b724e0304713bcb7c036f576b433" }
+]
+
+[[durable_objects]]
+name = "SESSIONS_DO"
+class_name = "SessionDO"

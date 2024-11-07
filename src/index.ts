@@ -2,6 +2,8 @@ import { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:work
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { methodOverride } from 'hono/method-override'
+import { jwt } from 'hono/jwt'
+import { KVNamespace, DurableObjectNamespace } from 'cloudflare:workers'
 
 // @ts-expect-error
 import notes from './notes.html'
@@ -14,7 +16,10 @@ type Env = {
   AI: Ai;
   DATABASE: D1Database;
   RAG_WORKFLOW: Workflow;
-  VECTOR_INDEX: VectorizeIndex
+  VECTOR_INDEX: VectorizeIndex;
+  JWT_SECRET: string;
+  USERS_KV: KVNamespace;
+  SESSIONS_DO: DurableObjectNamespace;
 };
 
 type Note = {
@@ -102,6 +107,10 @@ app.get('/query', async (c) => {
 app.get('/', async (c) => {
   return c.html(`
     <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
       .action-bar {
         display: flex;
         justify-content: space-between;
@@ -109,6 +118,11 @@ app.get('/', async (c) => {
         padding: 10px;
         background-color: #333;
         color: white;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
       }
       .title {
         text-align: center;
@@ -142,9 +156,9 @@ app.get('/', async (c) => {
         background-color: #333;
         color: white;
         position: fixed;
-        top: 0;
+        top: 50px; /* Adjusted to be below the action bar */
         left: 0;
-        height: 100%;
+        height: calc(100% - 50px); /* Adjusted to account for the action bar height */
         padding: 10px;
         display: none;
       }
@@ -156,6 +170,7 @@ app.get('/', async (c) => {
         background-color: #444;
       }
       .content {
+        margin-top: 50px; /* Adjusted to account for the action bar height */
         margin-left: 0;
         transition: margin-left 0.3s;
       }
@@ -206,6 +221,56 @@ app.get('/', async (c) => {
   `);
 })
 
+app.post('/login', async (c) => {
+  const { email, password } = await c.req.json();
+  if (!email || !password) return c.text("Missing email or password", 400);
+
+  const user = await c.env.USERS_KV.get(email);
+  if (!user || JSON.parse(user).password !== password) return c.text("Invalid email or password", 401);
+
+  const token = await jwt.sign({ email }, c.env.JWT_SECRET, { expiresIn: '1h' });
+  c.cookie('token', token, { httpOnly: true, secure: true });
+
+  return c.text("Login successful", 200);
+})
+
+app.get('/login', async (c) => {
+  return c.html(`
+    <form method="POST" action="/login">
+      <label for="email">Email:</label>
+      <input type="email" id="email" name="email" required>
+      <label for="password">Password:</label>
+      <input type="password" id="password" name="password" required>
+      <button type="submit">Login</button>
+    </form>
+  `);
+})
+
+app.post('/signup', async (c) => {
+  const { email, password } = await c.req.json();
+  if (!email || !password) return c.text("Missing email or password", 400);
+
+  const user = { email, password }; // Hash the password in a real implementation
+  await c.env.USERS_KV.put(email, JSON.stringify(user));
+
+  const token = await jwt.sign({ email }, c.env.JWT_SECRET, { expiresIn: '1h' });
+  c.cookie('token', token, { httpOnly: true, secure: true });
+
+  return c.text("Signup successful", 201);
+})
+
+app.get('/signup', async (c) => {
+  return c.html(`
+    <form method="POST" action="/signup">
+      <label for="email">Email:</label>
+      <input type="email" id="email" name="email" required>
+      <label for="password">Password:</label>
+      <input type="password" id="password" name="password" required>
+      <button type="submit">Signup</button>
+    </form>
+  `);
+})
+
 export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
     const env = this.env
@@ -238,6 +303,17 @@ export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
         }
       ]);
     })
+  }
+}
+
+export class SessionDO {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+  }
+
+  async fetch(request) {
+    // Handle session management
   }
 }
 
