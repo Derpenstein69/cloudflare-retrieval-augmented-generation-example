@@ -4,6 +4,7 @@ import { cors } from 'hono/cors'
 import { methodOverride } from 'hono/method-override'
 import { jwt } from 'hono/jwt'
 import { KVNamespace, DurableObjectNamespace } from 'cloudflare:workers'
+import { getCookie, setCookie } from 'hono/cookie'
 
 // @ts-expect-error
 import notes from './notes.html'
@@ -105,7 +106,7 @@ app.get('/query', async (c) => {
 })
 
 const checkAuth = async (c, next) => {
-  const token = c.req.cookies('token');
+  const token = getCookie(c, 'token');
   if (!token) {
     return c.redirect('/login');
   }
@@ -258,7 +259,11 @@ app.post('/login', async (c) => {
   if (!user || JSON.parse(user).password !== password) return c.text("Invalid email or password", 401);
 
   const token = await jwt.sign({ email }, c.env.JWT_SECRET, { expiresIn: '1h' });
-  c.cookie('token', token, { httpOnly: true, secure: true });
+  setCookie(c, 'token', token, {
+    httpOnly: true,
+    secure: true,
+    path: '/'
+  });
 
   return c.text("Login successful", 200);
 })
@@ -283,7 +288,11 @@ app.post('/signup', async (c) => {
   await c.env.USERS_KV.put(email, JSON.stringify(user));
 
   const token = await jwt.sign({ email }, c.env.JWT_SECRET, { expiresIn: '1h' });
-  c.cookie('token', token, { httpOnly: true, secure: true });
+  setCookie(c, 'token', token, {
+    httpOnly: true,
+    secure: true,
+    path: '/'
+  });
 
   return c.text("Signup successful", 201);
 })
