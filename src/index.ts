@@ -13,6 +13,8 @@ import ui from './ui.html'
 // @ts-expect-error
 import write from './write.html'
 
+import { hashPassword, verifyPassword, generateSecureKey } from './utils';
+
 type Env = {
   AI: Ai;
   DATABASE: D1Database;
@@ -32,8 +34,25 @@ type Params = {
   text: string;
 };
 
+// Add this function at the start of the file
+const validateEnv = (env: Env) => {
+  if (!env.JWT_SECRET) throw new Error('JWT_SECRET is not set');
+  if (!env.USERS_KV) throw new Error('USERS_KV is not configured');
+};
+
 const app = new Hono<{ Bindings: Env }>()
 app.use(cors())
+
+// Add error handling middleware
+app.use('*', async (c, next) => {
+  try {
+    validateEnv(c.env);
+    await next();
+  } catch (err) {
+    console.error('Environment error:', err);
+    return c.text('Server configuration error', 500);
+  }
+});
 
 app.get('/notes.json', async (c) => {
   const query = `SELECT * FROM notes`
@@ -105,6 +124,7 @@ app.get('/query', async (c) => {
   return response ? c.text((response as any).response) : c.text("We were unable to generate output", 500)
 })
 
+// Update checkAuth middleware to use the stored JWT secret
 const checkAuth = async (c, next) => {
   const token = getCookie(c, 'token');
   if (!token) {
@@ -112,7 +132,12 @@ const checkAuth = async (c, next) => {
   }
 
   try {
-    await jwt.verify(token, c.env.JWT_SECRET);
+    const jwtSecret = await c.env.USERS_KV.get('JWT_SECRET');
+    if (!jwtSecret) {
+      throw new Error('JWT secret not found');
+    }
+    
+    await jwt.verify(token, jwtSecret);
     await next();
   } catch (e) {
     return c.redirect('/login');
@@ -260,12 +285,26 @@ app.post('/login', async (c) => {
   if (!email || !password) return c.text("Missing email or password", 400);
 
   try {
-    const user = await c.env.USERS_KV.get(email);
-    if (!user || JSON.parse(user).password !== password) {
+    const userStr = await c.env.USERS_KV.get(email);
+    if (!userStr) {
       return c.text("Invalid email or password", 401);
     }
 
-    const token = await jwt.sign({ email }, c.env.JWT_SECRET, { expiresIn: '1h' });
+    const user = JSON.parse(userStr);
+    const isValid = await verifyPassword(password, user.password);
+    
+    if (!isValid) {
+      return c.text("Invalid email or password", 401);
+    }
+
+    // Get or generate JWT secret
+    let jwtSecret = await c.env.USERS_KV.get('JWT_SECRET');
+    if (!jwtSecret) {
+      jwtSecret = generateSecureKey(64);
+      await c.env.USERS_KV.put('JWT_SECRET', jwtSecret);
+    }
+
+    const token = await jwt.sign({ email }, jwtSecret, { expiresIn: '1h' });
     setCookie(c, 'token', token, {
       httpOnly: true,
       secure: true,
@@ -275,6 +314,7 @@ app.post('/login', async (c) => {
 
     return c.text("Login successful", 200);
   } catch (err) {
+    console.error('Login error:', err);
     return c.text("An error occurred during login", 500);
   }
 })
@@ -358,22 +398,30 @@ app.get('/login', async (c) => {
   `);
 })
 
+// Update the signup handler with better error handling
 app.post('/signup', async (c) => {
-  const { email, password } = await c.req.json();
-  if (!email || !password) return c.text("Missing email or password", 400);
-  if (password.length < 6) return c.text("Password must be at least 6 characters", 400);
-
   try {
-    // Check if user already exists
+    const { email, password } = await c.req.json();
+    if (!email || !password) return c.text("Missing email or password", 400);
+    if (password.length < 8) return c.text("Password must be at least 8 characters", 400);
+
     const existing = await c.env.USERS_KV.get(email);
     if (existing) {
       return c.text("Email already registered", 400);
     }
 
-    const user = { email, password }; // In production, hash the password
+    const hashedPassword = await hashPassword(password);
+    const user = { email, password: hashedPassword };
     await c.env.USERS_KV.put(email, JSON.stringify(user));
 
-    const token = await jwt.sign({ email }, c.env.JWT_SECRET, { expiresIn: '1h' });
+    // Ensure JWT secret exists
+    let jwtSecret = await c.env.USERS_KV.get('JWT_SECRET');
+    if (!jwtSecret) {
+      jwtSecret = generateSecureKey(64);
+      await c.env.USERS_KV.put('JWT_SECRET', jwtSecret);
+    }
+
+    const token = await jwt.sign({ email }, jwtSecret, { expiresIn: '1h' });
     setCookie(c, 'token', token, {
       httpOnly: true,
       secure: true,
@@ -383,6 +431,7 @@ app.post('/signup', async (c) => {
 
     return c.text("Signup successful", 201);
   } catch (err) {
+    console.error('Signup error:', err);
     return c.text("An error occurred during signup", 500);
   }
 })

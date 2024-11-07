@@ -40,3 +40,7 @@ new_classes = ["SessionDO"]
 [observability]
 enabled = true
 head_sampling_rate = 1
+
+[vars]
+# Remove or comment out the JWT_SECRET line since we're generating it dynamically
+# JWT_SECRET = "your-secret-key-here"
