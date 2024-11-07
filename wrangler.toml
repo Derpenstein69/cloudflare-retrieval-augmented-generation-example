@@ -11,13 +11,13 @@ globs = ["**/*.html"]
 fallthrough = true
 
 [[d1_databases]]
-binding = "DATABASE"
-database_name = "ai-example"
-database_id = "2a210384-148b-4c31-bbad-c2873f649f9c"
+binding = "DB"
+database_name = "RUSSTCORP-AI-DATABASE"
+database_id = "28b28058-1a2c-4dfa-821a-f633bff5d5e9"
 
 [[vectorize]]
-binding = "VECTOR_INDEX"
-index_name = "tutorial-index-768"
+binding = "VECTORIZE"
+index_name = "russtcorp-ai-vector-index"
 
 [[workflows]]
 name = "rag"
