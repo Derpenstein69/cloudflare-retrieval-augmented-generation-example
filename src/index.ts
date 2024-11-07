@@ -20,13 +20,14 @@ app.use('*', async (c, next) => {
   }
 });
 
-// Remove the global auth check
-// app.use('*', checkAuth)  <- Remove this line
+// Mount auth routes without auth check
+app.route('/', authRoutes)
 
-// Apply auth only to specific routes
-app.route('/auth', authRoutes)
-app.route('/notes', checkAuth, notesRoutes)
-app.route('/settings', checkAuth, settingsRoutes)
+// Protected routes
+app.use('/notes/*', checkAuth)
+app.use('/settings/*', checkAuth)
+app.route('/', notesRoutes)
+app.route('/', settingsRoutes)
 
 // Protect the home page
 app.get('/', checkAuth, async (c) => {
