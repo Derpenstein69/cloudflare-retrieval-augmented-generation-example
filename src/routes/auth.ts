@@ -52,9 +52,16 @@ auth.post('/login', async (c) => {
   }
 });
 
-auth.get('/login', (c) => {
-  return c.html(loginTemplate())
-})
+auth.get('/login', async (c) => {
+  const sessionId = getCookie(c, 'session');
+  if (sessionId) {
+    const userEmail = await c.env.SESSIONS_DO.get(sessionId);
+    if (userEmail) {
+      return c.redirect('/');
+    }
+  }
+  return c.html(loginTemplate());
+});
 
 auth.post('/signup', async (c) => {
   try {
