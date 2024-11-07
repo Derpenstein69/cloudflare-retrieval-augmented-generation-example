@@ -65,62 +65,66 @@ export const sharedStyles = `
 
 export const themeScript = `
   <script>
-    function getSystemTheme() {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-
-    function setTheme(theme) {
-      const root = document.documentElement;
-      root.classList.remove('light-mode', 'dark-mode');
-      if (theme !== 'system') {
-        root.classList.add(theme + '-mode');
-      }
-      localStorage.setItem('theme', theme);
-      updateThemeToggleIcon(theme);
-    }
-
-    function updateThemeToggleIcon(theme) {
-      const icon = document.querySelector('.theme-toggle');
-      switch(theme) {
-        case 'system':
-          icon.textContent = '🌓';
-          break;
-        case 'dark':
-          icon.textContent = '🌙';
-          break;
-        case 'light':
-          icon.textContent = '☀️';
-          break;
-      }
-    }
-
-    function toggleTheme() {
-      const currentTheme = localStorage.getItem('theme') || 'system';
-      const themes = ['system', 'light', 'dark'];
-      const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
-      const newTheme = themes[nextIndex];
-      setTheme(newTheme);
-      
-      if (newTheme === 'system') {
-        const systemTheme = getSystemTheme();
-        document.documentElement.classList.toggle('dark-mode', systemTheme === 'dark');
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const savedTheme = localStorage.getItem('theme') || 'system';
-      setTheme(savedTheme);
-      
-      if (savedTheme === 'system') {
-        const systemTheme = getSystemTheme();
-        document.documentElement.classList.toggle('dark-mode', systemTheme === 'dark');
+    try {
+      function getSystemTheme() {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       }
 
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        if (localStorage.getItem('theme') === 'system') {
-          document.documentElement.classList.toggle('dark-mode', e.matches);
+      function setTheme(theme) {
+        const root = document.documentElement;
+        root.classList.remove('light-mode', 'dark-mode');
+        if (theme !== 'system') {
+          root.classList.add(theme + '-mode');
+        }
+        localStorage.setItem('theme', theme);
+        updateThemeToggleIcon(theme);
+      }
+
+      function updateThemeToggleIcon(theme) {
+        const icon = document.querySelector('.theme-toggle');
+        switch(theme) {
+          case 'system':
+            icon.textContent = '🌓';
+            break;
+          case 'dark':
+            icon.textContent = '🌙';
+            break;
+          case 'light':
+            icon.textContent = '☀️';
+            break;
+        }
+      }
+
+      function toggleTheme() {
+        const currentTheme = localStorage.getItem('theme') || 'system';
+        const themes = ['system', 'light', 'dark'];
+        const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+        const newTheme = themes[nextIndex];
+        setTheme(newTheme);
+        
+        if (newTheme === 'system') {
+          const systemTheme = getSystemTheme();
+          document.documentElement.classList.toggle('dark-mode', systemTheme === 'dark');
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        try {
+          const savedTheme = localStorage.getItem('theme') || 'system';
+          setTheme(savedTheme);
+          
+          if (savedTheme === 'system') {
+            const systemTheme = getSystemTheme();
+            document.documentElement.classList.toggle('dark-mode', systemTheme === 'dark');
+          }
+        } catch (err) {
+          console.error('Theme initialization error:', err);
+          // Fallback to light theme
+          document.documentElement.classList.add('light-mode');
         }
       });
-    });
+    } catch (err) {
+      console.error('Theme script error:', err);
+    }
   </script>
 `;

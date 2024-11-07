@@ -5,6 +5,8 @@ import authRoutes from './routes/auth'
 import notesRoutes from './routes/notes'
 import settingsRoutes from './routes/settings'
 import { homeTemplate } from './components/home'
+import { loginTemplate } from './components/login'  // Add this import
+import { signupTemplate } from './components/signup'  // Add this import
 import type { Env } from './types'
 
 const app = new Hono<{ Bindings: Env }>()
@@ -12,6 +14,10 @@ const app = new Hono<{ Bindings: Env }>()
 // Add error handling middleware
 app.onError((err, c) => {
   console.error('Application error:', err);
+  // Log the stack trace for better debugging
+  if (err instanceof Error) {
+    console.error('Stack trace:', err.stack);
+  }
   return c.html(`
     <!DOCTYPE html>
     <html>
@@ -23,6 +29,7 @@ app.onError((err, c) => {
         <h1>Something went wrong</h1>
         <p>We're sorry, but something went wrong. Please try again later.</p>
         <a href="/">Return to Home</a>
+        ${process.env.NODE_ENV === 'development' ? `<pre>${err}</pre>` : ''}
       </body>
     </html>
   `, 500);
@@ -57,9 +64,24 @@ app.use('*', async (c, next) => {
   }
 });
 
-// Login/Signup routes should be accessible without auth
-app.get('/login', async (c) => c.html(loginTemplate()))
-app.get('/signup', async (c) => c.html(signupTemplate()))
+// Login/Signup routes with error handling
+app.get('/login', async (c) => {
+  try {
+    return c.html(loginTemplate())
+  } catch (err) {
+    console.error('Login template error:', err);
+    throw err;
+  }
+})
+
+app.get('/signup', async (c) => {
+  try {
+    return c.html(signupTemplate())
+  } catch (err) {
+    console.error('Signup template error:', err);
+    throw err;
+  }
+})
 
 // Mount auth routes for POST handlers
 app.route('/auth', authRoutes)
