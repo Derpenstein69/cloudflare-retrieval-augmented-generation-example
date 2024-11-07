@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import { getCookie, setCookie } from 'hono/cookie'
 import { sign } from 'hono/jwt'  // Changed this line
 import { hashPassword, generateSecureKey } from '../utils'
+import { loginTemplate } from '../components/login'
+import { signupTemplate } from '../components/signup'
 import type { Env } from '../types'
 
 const auth = new Hono<{ Bindings: Env }>()
@@ -69,83 +71,8 @@ auth.post('/login', async (c) => {
   }
 })
 
-auth.get('/login', async (c) => {
-  return c.html(`
-    <style>
-      .login-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100vh;
-        gap: 20px;
-      }
-      .form-group {
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-        max-width: 300px;
-        gap: 5px;
-      }
-      .signup-link {
-        margin-top: 10px;
-        text-align: center;
-      }
-      .error-message {
-        color: red;
-        margin-top: 10px;
-        display: none;
-      }
-    </style>
-    <div class="login-container">
-      <form id="loginForm">
-        <div class="form-group">
-          <label for="email">Email:</label>
-          <input type="email" id="email" name="email" required>
-        </div>
-        <div class="form-group">
-          <label for="password">Password:</label>
-          <input type="password" id="password" name="password" required>
-        </div>
-        <div class="form-group">
-          <button type="submit">Login</button>
-        </div>
-        <div class="error-message" id="errorMessage"></div>
-        <div class="signup-link">
-          <a href="/signup">Don't have an account? Sign up</a>
-        </div>
-      </form>
-    </div>
-    <script>
-      document.getElementById('loginForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const errorMessage = document.getElementById('errorMessage');
-        errorMessage.style.display = 'none';
-        
-        try {
-          const response = await fetch('/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: document.getElementById('email').value,
-              password: document.getElementById('password').value
-            })
-          });
-          
-          if (response.ok) {
-            window.location.href = '/';
-          } else {
-            const error = await response.text();
-            errorMessage.textContent = error;
-            errorMessage.style.display = 'block';
-          }
-        } catch (err) {
-          errorMessage.textContent = 'An error occurred. Please try again.';
-          errorMessage.style.display = 'block';
-        }
-      });
-    </script>
-  `);
+auth.get('/login', (c) => {
+  return c.html(loginTemplate())
 })
 
 auth.post('/signup', async (c) => {
@@ -187,83 +114,8 @@ auth.post('/signup', async (c) => {
   }
 })
 
-auth.get('/signup', async (c) => {
-  return c.html(`
-    <style>
-      .login-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100vh;
-        gap: 20px;
-      }
-      .form-group {
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-        max-width: 300px;
-        gap: 5px;
-      }
-      .login-link {
-        margin-top: 10px;
-        text-align: center;
-      }
-      .error-message {
-        color: red;
-        margin-top: 10px;
-        display: none;
-      }
-    </style>
-    <div class="login-container">
-      <form id="signupForm">
-        <div class="form-group">
-          <label for="email">Email:</label>
-          <input type="email" id="email" name="email" required>
-        </div>
-        <div class="form-group">
-          <label for="password">Password:</label>
-          <input type="password" id="password" name="password" required minlength="6">
-        </div>
-        <div class="form-group">
-          <button type="submit">Sign up</button>
-        </div>
-        <div class="error-message" id="errorMessage"></div>
-        <div class="login-link">
-          <a href="/login">Already have an account? Login</a>
-        </div>
-      </form>
-    </div>
-    <script>
-      document.getElementById('signupForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const errorMessage = document.getElementById('errorMessage');
-        errorMessage.style.display = 'none';
-        
-        try {
-          const response = await fetch('/signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: document.getElementById('email').value,
-              password: document.getElementById('password').value
-            })
-          });
-          
-          if (response.ok) {
-            window.location.href = '/';
-          } else {
-            const error = await response.text();
-            errorMessage.textContent = error;
-            errorMessage.style.display = 'block';
-          }
-        } catch (err) {
-          errorMessage.textContent = 'An error occurred. Please try again.';
-          errorMessage.style.display = 'block';
-        }
-      });
-    </script>
-  `);
+auth.get('/signup', (c) => {
+  return c.html(signupTemplate())
 })
 
 auth.post('/logout', async (c) => {

@@ -101,13 +101,15 @@ export const homeTemplate = () => `
     <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
     <div class="user-icon" onclick="toggleMenu()">👤
       <ul class="menu" id="user-menu">
-        <li class="menu-item" onclick="location.href='/settings/account'">Account Settings</li>
+        <li class="menu-item" onclick="alert('Profile')">Profile</li>
+        <li class="menu-item" onclick="alert('Settings')">Settings</li>
         <li class="menu-item" onclick="logout()">Logout</li>
       </ul>
     </div>
   </div>
   <div class="sidebar" id="sidebar">
-    <div class="sidebar-item" onclick="location.href='/notes'">Notes</div>
+    <div class="sidebar-item" onclick="loadContent('/notes')">Notes</div>
+    <div class="sidebar-item" onclick="loadContent('/settings')">Settings</div>
   </div>
   <div class="content" id="content">
     <h1>Welcome to the Home Page</h1>
@@ -201,5 +203,32 @@ export const homeTemplate = () => `
         menu.style.display = 'none';
       }
     });
+
+    async function loadContent(path) {
+      const response = await fetch(path);
+      const html = await response.text();
+      document.getElementById('content').innerHTML = html;
+      
+      // Update URL without page reload
+      history.pushState(null, '', path);
+    }
+
+    // Handle menu item clicks
+    document.querySelectorAll('.menu-item').forEach(item => {
+      item.onclick = (e) => {
+        e.preventDefault();
+        if (item.textContent === 'Settings') {
+          loadContent('/settings');
+        } else if (item.textContent === 'Profile') {
+          loadContent('/profile');
+        }
+        toggleMenu();
+      };
+    });
+
+    // Handle browser back/forward buttons
+    window.onpopstate = () => {
+      loadContent(window.location.pathname);
+    };
   </script>
 `;
