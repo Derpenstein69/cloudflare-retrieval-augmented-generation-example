@@ -212,7 +212,7 @@ app.get('/', checkAuth, async (c) => {
         <ul class="menu" id="user-menu">
           <li class="menu-item" onclick="alert('Profile')">Profile</li>
           <li class="menu-item" onclick="alert('Settings')">Settings</li>
-          <li class="menu-item" onclick="alert('Logout')">Logout</li>
+          <li class="menu-item" onclick="logout()">Logout</li>
         </ul>
       </div>
     </div>
@@ -241,6 +241,10 @@ app.get('/', checkAuth, async (c) => {
       function toggleTheme() {
         document.documentElement.classList.toggle('dark-mode');
       }
+      async function logout() {
+        await fetch('/logout', { method: 'POST' });
+        window.location.href = '/login';
+      }
       document.addEventListener('click', function(event) {
         const menu = document.getElementById('user-menu');
         if (!event.target.closest('.user-icon')) {
@@ -255,58 +259,222 @@ app.post('/login', async (c) => {
   const { email, password } = await c.req.json();
   if (!email || !password) return c.text("Missing email or password", 400);
 
-  const user = await c.env.USERS_KV.get(email);
-  if (!user || JSON.parse(user).password !== password) return c.text("Invalid email or password", 401);
+  try {
+    const user = await c.env.USERS_KV.get(email);
+    if (!user || JSON.parse(user).password !== password) {
+      return c.text("Invalid email or password", 401);
+    }
 
-  const token = await jwt.sign({ email }, c.env.JWT_SECRET, { expiresIn: '1h' });
-  setCookie(c, 'token', token, {
-    httpOnly: true,
-    secure: true,
-    path: '/'
-  });
+    const token = await jwt.sign({ email }, c.env.JWT_SECRET, { expiresIn: '1h' });
+    setCookie(c, 'token', token, {
+      httpOnly: true,
+      secure: true,
+      path: '/',
+      sameSite: 'Strict'
+    });
 
-  return c.text("Login successful", 200);
+    return c.text("Login successful", 200);
+  } catch (err) {
+    return c.text("An error occurred during login", 500);
+  }
 })
 
 app.get('/login', async (c) => {
   return c.html(`
-    <form method="POST" action="/login">
-      <label for="email">Email:</label>
-      <input type="email" id="email" name="email" required>
-      <label for="password">Password:</label>
-      <input type="password" id="password" name="password" required>
-      <button type="submit">Login</button>
-    </form>
+    <style>
+      .login-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        gap: 20px;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        max-width: 300px;
+        gap: 5px;
+      }
+      .signup-link {
+        margin-top: 10px;
+        text-align: center;
+      }
+      .error-message {
+        color: red;
+        margin-top: 10px;
+        display: none;
+      }
+    </style>
+    <div class="login-container">
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email:</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password:</label>
+          <input type="password" id="password" name="password" required>
+        </div>
+        <div class="form-group">
+          <button type="submit">Login</button>
+        </div>
+        <div class="error-message" id="errorMessage"></div>
+        <div class="signup-link">
+          <a href="/signup">Don't have an account? Sign up</a>
+        </div>
+      </form>
+    </div>
+    <script>
+      document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errorMessage = document.getElementById('errorMessage');
+        errorMessage.style.display = 'none';
+        
+        try {
+          const response = await fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: document.getElementById('email').value,
+              password: document.getElementById('password').value
+            })
+          });
+          
+          if (response.ok) {
+            window.location.href = '/';
+          } else {
+            const error = await response.text();
+            errorMessage.textContent = error;
+            errorMessage.style.display = 'block';
+          }
+        } catch (err) {
+          errorMessage.textContent = 'An error occurred. Please try again.';
+          errorMessage.style.display = 'block';
+        }
+      });
+    </script>
   `);
 })
 
 app.post('/signup', async (c) => {
   const { email, password } = await c.req.json();
   if (!email || !password) return c.text("Missing email or password", 400);
+  if (password.length < 6) return c.text("Password must be at least 6 characters", 400);
 
-  const user = { email, password }; // Hash the password in a real implementation
-  await c.env.USERS_KV.put(email, JSON.stringify(user));
+  try {
+    // Check if user already exists
+    const existing = await c.env.USERS_KV.get(email);
+    if (existing) {
+      return c.text("Email already registered", 400);
+    }
 
-  const token = await jwt.sign({ email }, c.env.JWT_SECRET, { expiresIn: '1h' });
-  setCookie(c, 'token', token, {
-    httpOnly: true,
-    secure: true,
-    path: '/'
-  });
+    const user = { email, password }; // In production, hash the password
+    await c.env.USERS_KV.put(email, JSON.stringify(user));
 
-  return c.text("Signup successful", 201);
+    const token = await jwt.sign({ email }, c.env.JWT_SECRET, { expiresIn: '1h' });
+    setCookie(c, 'token', token, {
+      httpOnly: true,
+      secure: true,
+      path: '/',
+      sameSite: 'Strict'
+    });
+
+    return c.text("Signup successful", 201);
+  } catch (err) {
+    return c.text("An error occurred during signup", 500);
+  }
 })
 
 app.get('/signup', async (c) => {
   return c.html(`
-    <form method="POST" action="/signup">
-      <label for="email">Email:</label>
-      <input type="email" id="email" name="email" required>
-      <label for="password">Password:</label>
-      <input type="password" id="password" name="password" required>
-      <button type="submit">Signup</button>
-    </form>
+    <style>
+      .login-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        gap: 20px;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        max-width: 300px;
+        gap: 5px;
+      }
+      .login-link {
+        margin-top: 10px;
+        text-align: center;
+      }
+      .error-message {
+        color: red;
+        margin-top: 10px;
+        display: none;
+      }
+    </style>
+    <div class="login-container">
+      <form id="signupForm">
+        <div class="form-group">
+          <label for="email">Email:</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password:</label>
+          <input type="password" id="password" name="password" required minlength="6">
+        </div>
+        <div class="form-group">
+          <button type="submit">Sign up</button>
+        </div>
+        <div class="error-message" id="errorMessage"></div>
+        <div class="login-link">
+          <a href="/login">Already have an account? Login</a>
+        </div>
+      </form>
+    </div>
+    <script>
+      document.getElementById('signupForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errorMessage = document.getElementById('errorMessage');
+        errorMessage.style.display = 'none';
+        
+        try {
+          const response = await fetch('/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: document.getElementById('email').value,
+              password: document.getElementById('password').value
+            })
+          });
+          
+          if (response.ok) {
+            window.location.href = '/';
+          } else {
+            const error = await response.text();
+            errorMessage.textContent = error;
+            errorMessage.style.display = 'block';
+          }
+        } catch (err) {
+          errorMessage.textContent = 'An error occurred. Please try again.';
+          errorMessage.style.display = 'block';
+        }
+      });
+    </script>
   `);
+})
+
+// Also add a logout route
+app.post('/logout', async (c) => {
+  setCookie(c, 'token', '', {
+    httpOnly: true,
+    secure: true,
+    path: '/',
+    maxAge: 0
+  });
+  return c.redirect('/login');
 })
 
 export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
