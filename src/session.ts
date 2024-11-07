@@ -1,7 +1,6 @@
 export class SessionDO {
   private state: DurableObjectState;
   private env: any;
-  private email: string | null = null;
 
   constructor(state: DurableObjectState, env: any) {
     this.state = state;
@@ -13,20 +12,16 @@ export class SessionDO {
     
     switch (url.pathname) {
       case '/save':
-        const data = await request.text();
-        this.email = data;
-        await this.state.storage.put('email', data);
-        return new Response('OK');
+        const email = await request.text();
+        await this.state.storage.put('email', email);
+        return new Response(email);
       
       case '/get':
-        if (!this.email) {
-          this.email = await this.state.storage.get('email');
-        }
-        return new Response(this.email || null);
+        const storedEmail = await this.state.storage.get('email');
+        return new Response(storedEmail || '');
       
       case '/delete':
         await this.state.storage.delete('email');
-        this.email = null;
         return new Response('OK');
       
       default:

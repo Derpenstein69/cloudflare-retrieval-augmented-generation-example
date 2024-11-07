@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { checkAuth, validateEnv } from './middleware/auth'
+import { authMiddleware, validateEnv } from './middleware/auth'
 import authRoutes from './routes/auth'
 import notesRoutes from './routes/notes'
 import settingsRoutes from './routes/settings'
@@ -20,28 +20,16 @@ app.use('*', async (c, next) => {
   }
 });
 
-// Mount auth routes without auth check
-app.route('/', authRoutes)
+// Public routes
+app.route('/auth', authRoutes)
 
 // Protected routes
-app.use('/notes/*', checkAuth)
-app.use('/settings/*', checkAuth)
-app.route('/', notesRoutes)
-app.route('/', settingsRoutes)
-
-// Protect the home page
-app.get('/', checkAuth, async (c) => {
-  try {
-    const html = homeTemplate();
-    if (!html) {
-      throw new Error('Failed to generate home template');
-    }
-    return c.html(html);
-  } catch (err) {
-    console.error('Error rendering home template:', err);
-    return c.text('Internal Server Error', 500);
-  }
+app.use('*', authMiddleware) // Protect all routes after this
+app.get('/', async (c) => {
+  return c.html(homeTemplate())
 })
+app.route('/notes', notesRoutes)
+app.route('/settings', settingsRoutes)
 
 app.get('/query', async (c) => {
   const question = c.req.query('text') || "What is the square root of 9?"
