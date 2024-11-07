@@ -30,12 +30,13 @@ auth.post('/login', async (c) => {
     }
 
     const sessionId = generateSecureKey();
-    try {
-      await c.env.SESSIONS_DO.get(sessionId).then(obj => obj.save(email));
-    } catch (error) {
-      console.error('Session creation error:', error);
-      return c.json({ error: 'Failed to create session' }, 500);
-    }
+    const sessionDOId = c.env.SESSIONS_DO.idFromName(sessionId);
+    const sessionDO = c.env.SESSIONS_DO.get(sessionDOId);
+    
+    await sessionDO.fetch(new Request('https://dummy-url/save', {
+      method: 'POST',
+      body: email as string
+    }));
 
     setCookie(c, 'session', sessionId, {
       httpOnly: true,
@@ -94,9 +95,16 @@ auth.post('/signup', async (c) => {
     const user = { email, password: hashedPassword };
     await c.env.USERS_KV.put(email as string, JSON.stringify(user));
 
-    // Create session after signup
+    // Create session with proper DO ID
     const sessionId = generateSecureKey();
-    await c.env.SESSIONS_DO.get(sessionId).then(obj => obj.save(email));
+    const sessionDOId = c.env.SESSIONS_DO.idFromName(sessionId);
+    const sessionDO = c.env.SESSIONS_DO.get(sessionDOId);
+    
+    // Save the email in the session
+    await sessionDO.fetch(new Request('https://dummy-url/save', {
+      method: 'POST',
+      body: email as string
+    }));
 
     setCookie(c, 'session', sessionId, {
       httpOnly: true,
