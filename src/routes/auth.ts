@@ -11,6 +11,7 @@ const auth = new Hono<{ Bindings: Env }>()
 // Add method not allowed handler
 auth.all('/login', async (c) => {
   if (c.req.method !== 'POST') {
+    console.log('Method not allowed for login');
     return c.text('Method not allowed', 405);
   }
   try {
@@ -18,11 +19,13 @@ auth.all('/login', async (c) => {
     const { email, password } = formData;
     
     if (!email || !password) {
+      console.log('Email or password missing');
       return c.json({ error: 'Email and password are required' }, 400);
     }
 
     const userData = await c.env.USERS_KV.get(email);
     if (!userData) {
+      console.log('Invalid credentials for email:', email);
       return c.json({ error: 'Invalid credentials' }, 401);
     }
 
@@ -30,6 +33,7 @@ auth.all('/login', async (c) => {
     const hashedPassword = await hashPassword(password as string);
     
     if (user.password !== hashedPassword) {
+      console.log('Invalid credentials for email:', email);
       return c.json({ error: 'Invalid credentials' }, 401);
     }
 
@@ -43,6 +47,7 @@ auth.all('/login', async (c) => {
       maxAge: 60 * 60 * 24 // 24 hours
     });
 
+    console.log('User logged in:', email);
     return c.redirect('/');
   } catch (error) {
     console.error('Login error:', error);
@@ -52,6 +57,7 @@ auth.all('/login', async (c) => {
 
 auth.all('/signup', async (c) => {
   if (c.req.method !== 'POST') {
+    console.log('Method not allowed for signup');
     return c.text('Method not allowed', 405);
   }
   try {
@@ -59,19 +65,23 @@ auth.all('/signup', async (c) => {
     const { email, password, confirm_password } = formData;
     
     if (!email || !password) {
+      console.log('Email or password missing');
       return c.json({ error: "Missing email or password" }, 400);
     }
     
     if (password !== confirm_password) {
+      console.log('Passwords do not match');
       return c.json({ error: "Passwords do not match" }, 400);
     }
 
     if (typeof password === 'string' && password.length < 8) {
+      console.log('Password too short');
       return c.json({ error: "Password must be at least 8 characters" }, 400);
     }
 
     const existing = await c.env.USERS_KV.get(email as string);
     if (existing) {
+      console.log('Email already registered:', email);
       return c.json({ error: "Email already registered" }, 400);
     }
 
@@ -89,6 +99,7 @@ auth.all('/signup', async (c) => {
       maxAge: 60 * 60 * 24 // 24 hours
     });
 
+    console.log('User signed up:', email);
     return c.redirect('/');
   } catch (err) {
     console.error('Signup error:', err);
@@ -97,12 +108,20 @@ auth.all('/signup', async (c) => {
 })
 
 auth.post('/logout', async (c) => {
+  const sessionCookie = getCookie(c, 'session');
+  if (!sessionCookie) {
+    console.log('No session cookie found during logout');
+    return c.json({ message: 'No active session' }, 400);
+  }
+
   deleteCookie(c, 'session', { path: '/' });
+  console.log('User logged out, session cookie deleted:', sessionCookie);
   return c.json({ message: 'Logged out successfully' });
 });
 
 // Add a catch-all route for unhandled paths
 auth.all('*', async (c) => {
+  console.log('Unhandled path:', c.req.path);
   return c.text('Not found', 404);
 })
 

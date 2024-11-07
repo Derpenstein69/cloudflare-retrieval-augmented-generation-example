@@ -39,6 +39,7 @@ app.onError((err, c) => {
 
 // Add not found handler
 app.notFound((c) => {
+  console.log('404 Not Found:', c.req.path);
   return c.html(`
     <!DOCTYPE html>
     <html>
@@ -71,6 +72,7 @@ app.use('*', async (c, next) => {
 app.use('/*', async (c, next) => {
   const sessionCookie = getCookie(c, 'session');
   if (!sessionCookie) {
+    console.log('No session cookie found, redirecting to login');
     return c.redirect('/login');
   }
   console.log('Session Cookie:', sessionCookie);
@@ -89,7 +91,10 @@ app.get('/login', async (c) => {
 
 app.get('/signup', async (c) => {
   try {
-    return c.html(signupTemplate())
+    console.log('Rendering signup template');
+    const template = signupTemplate();
+    console.log('Signup template rendered successfully');
+    return c.html(template);
   } catch (err) {
     console.error('Signup template error:', err);
     throw err;
@@ -105,7 +110,12 @@ app.use('/*', async (c, next) => {
   if (c.req.path.startsWith('/login') || c.req.path.startsWith('/signup') || c.req.path.startsWith('/auth')) {
     return next()
   }
-  return authMiddleware(c, next)
+  console.log('Authenticating request:', c.req.path);
+  const start = Date.now();
+  const result = await authMiddleware(c, next);
+  const duration = Date.now() - start;
+  console.log('Authentication completed for', c.req.path, 'in', duration, 'ms');
+  return result;
 })
 
 // Main routes

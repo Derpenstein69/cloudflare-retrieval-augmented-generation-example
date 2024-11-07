@@ -5,13 +5,17 @@ import { Context } from 'hono'
 
 export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: Function) => {
   const token = getCookie(c, 'session')
+  console.log('Session token:', token);
   if (!token) {
+    console.log('No session token found, redirecting to login');
     return c.redirect('/login')
   }
 
   try {
     const payload = verify(token, 'your-secret-key')
+    console.log('Token payload:', payload);
     c.set('userEmail', payload.email)
+    console.log('Authenticated user:', payload.email);
     await next()
   } catch (error) {
     console.error('Auth middleware error:', error)
