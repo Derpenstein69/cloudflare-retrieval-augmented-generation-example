@@ -16,7 +16,7 @@ export const signupTemplate = () => `
     </div>
     <div class="content">
       <h1>Sign Up</h1>
-      <form id="signup-form" action="/signup" method="POST">
+      <form id="signup-form" action="/auth/signup" method="POST">
         <input type="email" name="email" placeholder="Email" required>
         <input type="password" name="password" placeholder="Password" minlength="8" required>
         <input type="password" name="confirm_password" placeholder="Confirm Password" minlength="8" required>

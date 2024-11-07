@@ -8,7 +8,11 @@ import type { Env } from '../types'
 
 const auth = new Hono<{ Bindings: Env }>()
 
-auth.post('/login', async (c) => {
+// Add method not allowed handler
+auth.all('/login', async (c) => {
+  if (c.req.method !== 'POST') {
+    return c.text('Method not allowed', 405);
+  }
   try {
     const formData = await c.req.parseBody();
     const { email, password } = formData;
@@ -51,10 +55,12 @@ auth.post('/login', async (c) => {
     console.error('Login error:', error);
     return c.json({ error: 'Internal server error' }, 500);
   }
-});
+})
 
-// Remove the GET handlers since they're now in index.ts
-auth.post('/signup', async (c) => {
+auth.all('/signup', async (c) => {
+  if (c.req.method !== 'POST') {
+    return c.text('Method not allowed', 405);
+  }
   try {
     const formData = await c.req.parseBody();
     const { email, password, confirm_password } = formData;
@@ -106,7 +112,10 @@ auth.post('/signup', async (c) => {
   }
 })
 
-auth.post('/logout', async (c) => {
+auth.all('/logout', async (c) => {
+  if (c.req.method !== 'POST') {
+    return c.text('Method not allowed', 405);
+  }
   try {
     const sessionId = getCookie(c, 'session');
     if (sessionId) {
@@ -128,6 +137,11 @@ auth.post('/logout', async (c) => {
     console.error('Logout error:', error);
     return c.json({ error: 'Failed to logout' }, 500);
   }
-});
+})
+
+// Add a catch-all route for unhandled paths
+auth.all('*', async (c) => {
+  return c.text('Not found', 404);
+})
 
 export default auth
