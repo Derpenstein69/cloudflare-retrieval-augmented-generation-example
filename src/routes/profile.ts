@@ -1,4 +1,3 @@
-
 import { Hono } from 'hono';
 import { profileTemplate } from '../components/profile';
 import type { Env } from '../types';
@@ -21,7 +20,8 @@ profile.get('/profile', async (c) => {
     return c.json({ error: 'User not found' }, 404);
   }
 
-  return c.html(profileTemplate());
+  const user = JSON.parse(userData);
+  return c.json(user);
 });
 
 profile.post('/profile', async (c) => {

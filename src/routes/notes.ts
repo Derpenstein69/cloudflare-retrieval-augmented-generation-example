@@ -1,4 +1,3 @@
-
 import { Hono } from 'hono'
 import { methodOverride } from 'hono/method-override'
 import type { Env } from '../types'
@@ -12,7 +11,9 @@ notes.get('/notes.json', async (c) => {
 })
 
 notes.get('/notes', async (c) => {
-  return c.html(notes);
+  const query = `SELECT * FROM notes`
+  const { results } = await c.env.DATABASE.prepare(query).all()
+  return c.json(results);
 })
 
 notes.use('/notes/:id', methodOverride({ app: notes }))

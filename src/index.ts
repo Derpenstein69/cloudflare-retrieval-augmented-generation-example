@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { authMiddleware, validateEnv } from './middleware/auth'
 import authRoutes from './routes/auth'
 import notesRoutes from './routes/notes'
+import profileRoutes from './routes/profile'  // Add this import
 import settingsRoutes from './routes/settings'
 import { homeTemplate } from './components/home'
 import { loginTemplate } from './components/login'  // Add this import
@@ -98,6 +99,7 @@ app.use('/*', async (c, next) => {
 // Main routes
 app.get('/', async (c) => c.html(homeTemplate()))
 app.route('/notes', notesRoutes)
+app.route('/profile', profileRoutes)  // Add this line
 app.route('/settings', settingsRoutes)
 
 app.get('/query', async (c) => {
