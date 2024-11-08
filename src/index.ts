@@ -62,6 +62,7 @@ app.use(cors())
 app.use('*', async (c, next) => {
   try {
     validateEnv(c.env);
+    console.log('Environment bindings:', c.env); // Log environment bindings
     await next();
   } catch (err) {
     console.error('Environment error:', err);

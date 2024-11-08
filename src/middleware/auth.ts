@@ -42,4 +42,5 @@ export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: Functi
 export const validateEnv = (env: Env) => {
   if (!env.USERS_KV) throw new Error('USERS_KV is not configured');
   if (!env.SESSIONS_DO) throw new Error('SESSIONS_DO is not configured');
+  if (!env.DATABASE) throw new Error('DATABASE is not configured'); // Ensure DATABASE is validated
 };

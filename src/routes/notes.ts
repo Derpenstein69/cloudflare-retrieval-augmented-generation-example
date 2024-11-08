@@ -24,6 +24,8 @@ notes.get('/', async (c) => {
     return c.redirect('/login');
   }
 
+  console.log('DATABASE binding:', c.env.DATABASE); // Log DATABASE binding
+
   const notesData = await c.env.DATABASE.prepare('SELECT * FROM notes WHERE userEmail = ?').bind(userEmail).all<Note>();
   if (!notesData.results) {
     return c.json({ error: 'No notes found' }, 404);
