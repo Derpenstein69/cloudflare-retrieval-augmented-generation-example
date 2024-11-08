@@ -37,13 +37,15 @@ auth.all('/login', async (c) => {
       return c.json({ error: 'Invalid credentials' }, 401);
     }
 
-    const sessionId = generateSecureKey();
+    const sessionToken = generateSecureKey();
+    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+    
     await c.env.SESSIONS_DO.get(sessionId).fetch(new Request('https://dummy/save', {
       method: 'POST',
-      body: email
+      body: email as string
     }));
 
-    setCookie(c, 'session', sessionId, {
+    setCookie(c, 'session', sessionToken, {
       httpOnly: true,
       secure: true,
       path: '/',
@@ -52,7 +54,7 @@ auth.all('/login', async (c) => {
     });
 
     console.log('User logged in:', email);
-    console.log('Session ID set:', sessionId);
+    console.log('Session token set:', sessionToken);
     return c.redirect('/');
   } catch (error) {
     console.error('Login error:', error);

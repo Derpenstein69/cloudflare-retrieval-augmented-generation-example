@@ -1,17 +1,19 @@
 import { getCookie } from 'hono/cookie'
 import type { Env } from '../types'
 import { Context } from 'hono'
+import { SessionDO } from '../session'
 
 export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: Function) => {
-  const sessionId = getCookie(c, 'session')
-  console.log('Session token:', sessionId);
+  const sessionToken = getCookie(c, 'session')
+  console.log('Session token:', sessionToken);
   
-  if (!sessionId) {
+  if (!sessionToken) {
     console.log('No session token found, redirecting to login');
     return c.redirect('/login')
   }
 
   try {
+    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken)
     const sessionDO = c.env.SESSIONS_DO.get(sessionId)
     const response = await sessionDO.fetch(new Request('https://dummy/get'))
     

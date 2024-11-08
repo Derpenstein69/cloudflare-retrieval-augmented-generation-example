@@ -28,4 +28,8 @@ export class SessionDO {
         return new Response('Not Found', { status: 404 });
     }
   }
+
+  static createSessionId(namespace: DurableObjectNamespace, sessionToken: string): DurableObjectId {
+    return namespace.idFromString(sessionToken)
+  }
 }
