@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 import { methodOverride } from 'hono/method-override'
-import { notesTemplate } from '../components/notes' // Add this import
 import type { Env } from '../types'
 
 const notes = new Hono<{ Bindings: Env }>()
@@ -12,7 +11,15 @@ notes.get('/notes.json', async (c) => {
 })
 
 notes.get('/notes', async (c) => {
-  return c.html(notesTemplate()); // Return the notes template
+  try {
+    const userEmail = c.get('userEmail');
+    console.log('Fetching notes for user:', userEmail);
+    // Add your notes fetching logic here
+    return c.json({ message: 'Notes route working' });
+  } catch (error) {
+    console.error('Notes route error:', error);
+    return c.json({ error: 'Failed to fetch notes' }, 500);
+  }
 })
 
 notes.use('/notes/:id', methodOverride({ app: notes }))

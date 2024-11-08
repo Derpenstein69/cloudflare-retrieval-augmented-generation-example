@@ -104,26 +104,23 @@ app.use('/*', async (c, next) => {
     return next()
   }
 
-  const sessionCookie = getCookie(c, 'session');
-  if (!sessionCookie) {
-    console.log('No session cookie found, redirecting to login');
+  try {
+    console.log('Authenticating request:', c.req.path);
+    const start = Date.now();
+    await authMiddleware(c, next);
+    const duration = Date.now() - start;
+    console.log('Authentication completed for', c.req.path, 'in', duration, 'ms');
+  } catch (error) {
+    console.error('Authentication failed:', error);
     return c.redirect('/login');
   }
-  console.log('Session Cookie:', sessionCookie);
-
-  console.log('Authenticating request:', c.req.path);
-  const start = Date.now();
-  const result = await authMiddleware(c, next);
-  const duration = Date.now() - start;
-  console.log('Authentication completed for', c.req.path, 'in', duration, 'ms');
-  return result;
 })
 
 // Protected routes
 app.get('/', async (c) => c.html(homeTemplate()))
-app.route('/notes', notesRoutes)
-app.route('/profile', profileRoutes)
-app.route('/settings', settingsRoutes)
+app.route('/', notesRoutes) // Change this line to mount at root
+app.route('/', profileRoutes)
+app.route('/', settingsRoutes)
 
 app.get('/query', async (c) => {
   const question = c.req.query('text') || "What is the square root of 9?"
