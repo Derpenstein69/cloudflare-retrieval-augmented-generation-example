@@ -1,6 +1,18 @@
 import { sharedStyles, themeScript } from './shared'
 
-export const memoryTemplate = () => `
+export const memoryTemplate = () => {
+  const folderTemplate = (name: string) => `
+    <div class="folder-edit-menu">
+      <button class="folder-edit-button" onclick="deleteFolder(this)">Delete</button>
+      <button class="folder-edit-button" onclick="toggleFolderNameEdit(this)">Change Name</button>
+      <button class="folder-edit-button" onclick="togglePrivate(this)">Make Private</button>
+      <button class="folder-edit-button" onclick="editSettings(this)">Edit Settings</button>
+    </div>
+    <p class="folder-name">${name}</p>
+    <input type="text" class="folder-name-edit" value="${name}">
+  `;
+
+  return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -124,10 +136,10 @@ export const memoryTemplate = () => `
     <div class="memory-container">
       <h1>Memory Manager</h1>
       <div class="folders">
-        <div class="folder" onclick="loadContent('/memory/work')">Work</div>
-        <div class="folder" onclick="loadContent('/memory/personal')">Personal</div>
-        <div class="folder" onclick="loadContent('/memory/family')">Family</div>
-        <div class="folder" onclick="loadContent('/memory/private')">Private</div>
+        <div class="folder" onclick="loadContent('/memory/work')">${folderTemplate('Work')}</div>
+        <div class="folder" onclick="loadContent('/memory/personal')">${folderTemplate('Personal')}</div>
+        <div class="folder" onclick="loadContent('/memory/family')">${folderTemplate('Family')}</div>
+        <div class="folder" onclick="loadContent('/memory/private')">${folderTemplate('Private')}</div>
       </div>
     </div>
   </div>
@@ -158,16 +170,7 @@ export const memoryTemplate = () => `
       const folderName = 'New Folder';
       
       newFolder.className = 'folder';
-      newFolder.innerHTML = `
-        <div class="folder-edit-menu">
-          <button class="folder-edit-button" onclick="deleteFolder(this)">Delete</button>
-          <button class="folder-edit-button" onclick="toggleFolderNameEdit(this)">Change Name</button>
-          <button class="folder-edit-button" onclick="togglePrivate(this)">Make Private</button>
-          <button class="folder-edit-button" onclick="editSettings(this)">Edit Settings</button>
-        </div>
-        <p class="folder-name">\${folderName}</p>
-        <input type="text" class="folder-name-edit" value="\${folderName}">
-      `;
+      newFolder.innerHTML = \`${folderTemplate('New Folder')}\`;
       
       foldersDiv.appendChild(newFolder);
     }
@@ -248,4 +251,4 @@ export const memoryTemplate = () => `
   </script>
 </body>
 </html>
-`
+`};
