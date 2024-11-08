@@ -4,7 +4,7 @@ import type { Env } from '../types'
 import { Context } from 'hono'
 
 export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: Function) => {
-  const token = await getCookie(c, 'session')
+  const token = getCookie(c, 'session')
   console.log('Session token:', token);
   if (!token) {
     console.log('No session token found, redirecting to login');
@@ -20,7 +20,7 @@ export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: Functi
     console.log('Token payload:', payload);
     c.set('userEmail', payload.email)
     console.log('Authenticated user:', payload.email);
-    await next()
+    return await next()
   } catch (error) {
     console.error('Auth middleware error:', error)
     return c.redirect('/login')
