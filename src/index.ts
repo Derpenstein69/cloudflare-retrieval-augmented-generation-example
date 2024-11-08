@@ -58,6 +58,7 @@ app.notFound((c) => {
 
 app.use(cors())
 
+// Environment validation middleware
 app.use('*', async (c, next) => {
   try {
     validateEnv(c.env);
@@ -68,18 +69,7 @@ app.use('*', async (c, next) => {
   }
 });
 
-// Middleware to check for session cookie
-app.use('/*', async (c, next) => {
-  const sessionCookie = getCookie(c, 'session');
-  if (!sessionCookie) {
-    console.log('No session cookie found, redirecting to login');
-    return c.redirect('/login');
-  }
-  console.log('Session Cookie:', sessionCookie);
-  await next();
-});
-
-// Login/Signup routes with error handling
+// Public routes (no auth required)
 app.get('/login', async (c) => {
   try {
     return c.html(loginTemplate())
@@ -104,12 +94,23 @@ app.get('/signup', async (c) => {
 // Mount auth routes for POST handlers
 app.route('/auth', authRoutes)
 
-// Protected routes
+// Protected routes middleware - everything after this requires authentication
 app.use('/*', async (c, next) => {
-  // Skip auth check for login and signup routes
-  if (c.req.path.startsWith('/login') || c.req.path.startsWith('/signup') || c.req.path.startsWith('/auth')) {
+  // Skip auth check for login, signup, and auth routes
+  if (c.req.path.startsWith('/login') || 
+      c.req.path.startsWith('/signup') || 
+      c.req.path.startsWith('/auth')) {
+    console.log('Skipping auth check for public route:', c.req.path);
     return next()
   }
+
+  const sessionCookie = getCookie(c, 'session');
+  if (!sessionCookie) {
+    console.log('No session cookie found, redirecting to login');
+    return c.redirect('/login');
+  }
+  console.log('Session Cookie:', sessionCookie);
+
   console.log('Authenticating request:', c.req.path);
   const start = Date.now();
   const result = await authMiddleware(c, next);
@@ -118,10 +119,10 @@ app.use('/*', async (c, next) => {
   return result;
 })
 
-// Main routes
+// Protected routes
 app.get('/', async (c) => c.html(homeTemplate()))
 app.route('/notes', notesRoutes)
-app.route('/profile', profileRoutes) // Ensure this line is present
+app.route('/profile', profileRoutes)
 app.route('/settings', settingsRoutes)
 
 app.get('/query', async (c) => {
