@@ -83,7 +83,7 @@ protectedRoutes.use('*', authMiddleware)
 // Protected routes
 protectedRoutes.get('/', (c) => c.html(homeTemplate()))
 protectedRoutes.route('/notes', notesRoutes)
-protectedRoutes.route('/profile', profileRoutes)
+protectedRoutes.route('/profile', profileRoutes) // Ensure profile route is mounted
 protectedRoutes.route('/settings', settingsRoutes)
 
 // Mount protected routes

@@ -1,44 +1,32 @@
+import { sharedStyles, themeScript } from './shared'
+
 export const profileTemplate = () => `
-  <div class="profile-container">
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Profile | RusstCorp</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+  ${sharedStyles}
+</head>
+<body>
+  <div class="action-bar">
+    <div class="title">RusstCorp</div>
+    <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
+  </div>
+  <div class="content">
     <h1>Profile</h1>
-    <form id="profile-form">
-      <div class="form-group">
-        <label for="display-name">Display Name</label>
-        <input type="text" id="display-name" name="display_name">
+    <form id="profile-form" method="POST" action="/profile">
+      <div>
+        <input type="text" name="display_name" placeholder="Display Name" required>
       </div>
-      <div class="form-group">
-        <label for="bio">Bio</label>
-        <textarea id="bio" name="bio" rows="4"></textarea>
+      <div>
+        <textarea name="bio" placeholder="Bio" required></textarea>
       </div>
-      <button type="submit">Save Changes</button>
+      <button type="submit">Update Profile</button>
     </form>
   </div>
-  <script>
-    document.getElementById('profile-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(e.target);
-      const response = await fetch('/profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(Object.fromEntries(formData))
-      });
-      if (response.ok) {
-        alert('Profile updated successfully');
-      } else {
-        alert('Failed to update profile');
-      }
-    });
-
-    // Load current profile data
-    (async () => {
-      const response = await fetch('/profile');
-      if (response.ok) {
-        const data = await response.json();
-        document.getElementById('display-name').value = data.display_name || '';
-        document.getElementById('bio').value = data.bio || '';
-      }
-    })();
-  </script>
-`;
+  ${themeScript}
+</body>
+</html>
+`

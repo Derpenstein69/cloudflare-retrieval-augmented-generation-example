@@ -4,13 +4,21 @@ import type { Env } from '../types';
 
 const profile = new Hono<{ Bindings: Env }>();
 
-profile.get('/profile', async (c) => {
-  const sessionId = c.req.cookie('session');
-  if (!sessionId) {
+profile.get('/', async (c) => {
+  const sessionToken = getCookie(c, 'session');
+  if (!sessionToken) {
     return c.redirect('/login');
   }
 
-  const userEmail = await c.env.SESSIONS_DO.get(sessionId);
+  const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+  const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+  const response = await sessionDO.fetch(new Request('https://dummy/get'));
+  
+  if (!response.ok) {
+    return c.redirect('/login');
+  }
+
+  const userEmail = await response.text();
   if (!userEmail) {
     return c.redirect('/login');
   }
@@ -20,16 +28,24 @@ profile.get('/profile', async (c) => {
     return c.json({ error: 'User not found' }, 404);
   }
 
-  return c.html(profileTemplate()); // Return the profile template
+  return c.html(profileTemplate());
 });
 
-profile.post('/profile', async (c) => {
-  const sessionId = c.req.cookie('session');
-  if (!sessionId) {
+profile.post('/', async (c) => {
+  const sessionToken = getCookie(c, 'session');
+  if (!sessionToken) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
 
-  const userEmail = await c.env.SESSIONS_DO.get(sessionId);
+  const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+  const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+  const response = await sessionDO.fetch(new Request('https://dummy/get'));
+  
+  if (!response.ok) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const userEmail = await response.text();
   if (!userEmail) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
