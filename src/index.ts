@@ -75,19 +75,30 @@ app.get('/signup', async (c) => c.html(signupTemplate()))
 app.route('/auth', authRoutes)
 
 // Create a new Hono instance for protected routes
-const protected = new Hono<{ Bindings: Env }>()
+const protectedRoutes = new Hono<{ Bindings: Env }>()
 
 // Add auth middleware to all protected routes
-protected.use('*', authMiddleware)
+protectedRoutes.use('*', async (c, next) => {
+  try {
+    console.log('Authenticating request:', c.req.path);
+    const start = Date.now();
+    await authMiddleware(c, next);
+    const duration = Date.now() - start;
+    console.log('Authentication completed for', c.req.path, 'in', duration, 'ms');
+  } catch (error) {
+    console.error('Authentication failed:', error);
+    return c.redirect('/login');
+  }
+})
 
 // Protected routes
-protected.get('/', (c) => c.html(homeTemplate()))
-protected.route('/notes', notesRoutes)
-protected.route('/profile', profileRoutes)
-protected.route('/settings', settingsRoutes)
+protectedRoutes.get('/', (c) => c.html(homeTemplate()))
+protectedRoutes.route('/notes', notesRoutes)
+protectedRoutes.route('/profile', profileRoutes)
+protectedRoutes.route('/settings', settingsRoutes)
 
 // Mount protected routes
-app.route('', protected)
+app.route('', protectedRoutes)
 
 app.get('/query', async (c) => {
   const question = c.req.query('text') || "What is the square root of 9?"
