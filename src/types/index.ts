@@ -1,6 +1,6 @@
 export type Env = {
   AI: Ai;
-  DATABASE: D1Database;
+  DATABASE: D1Database; // Ensure DATABASE is defined
   RAG_WORKFLOW: Workflow;
   VECTOR_INDEX: VectorizeIndex;
   USERS_KV: KVNamespace;
