@@ -6,6 +6,7 @@ import authRoutes from './routes/auth'
 import notesRoutes from './routes/notes'
 import profileRoutes from './routes/profile'
 import settingsRoutes from './routes/settings'
+import memoryRoutes from './routes/memory'
 import { homeTemplate } from './components/home'
 import { loginTemplate } from './components/login'
 import { signupTemplate } from './components/signup'
@@ -85,7 +86,7 @@ protectedRoutes.use('*', authMiddleware)
 protectedRoutes.get('/', (c) => c.html(homeTemplate()))
 protectedRoutes.route('/notes', notesRoutes) // Ensure notes route is mounted
 protectedRoutes.route('/profile', profileRoutes) // Ensure profile route is mounted
-protectedRoutes.route('/memory', profileRoutes) // Ensure memory route is mounted
+protectedRoutes.route('/memory', memoryRoutes) // Ensure memory route is mounted
 protectedRoutes.route('/settings', settingsRoutes)
 
 // Mount protected routes

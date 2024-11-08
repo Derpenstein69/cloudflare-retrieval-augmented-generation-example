@@ -5,7 +5,7 @@ export const memoryTemplate = () => `
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Memory | RusstCorp</title>
+  <title>Memory Manager | RusstCorp</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
   ${sharedStyles}
 </head>
@@ -13,7 +13,7 @@ export const memoryTemplate = () => `
   <div class="action-bar">
     <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
     <div class="home-button" onclick="goHome()">🏠</div>
-    <div class="title">RusstCorp</div>
+    <div class="title">Memory Manager</div>
     <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
     <div class="user-icon" onclick="toggleMenu()">👤
       <ul class="menu" id="user-menu">
@@ -28,7 +28,7 @@ export const memoryTemplate = () => `
     <div class="sidebar-item" onclick="loadContent('/memory')">Memory</div>
   </div>
   <div class="content" id="content">
-    <h1>Memory</h1>
+    <h1>Memory Manager</h1>
     <div class="folders">
       <div class="folder" onclick="loadContent('/memory/work')">Work</div>
       <div class="folder" onclick="loadContent('/memory/personal')">Personal</div>
