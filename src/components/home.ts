@@ -111,7 +111,6 @@ export const homeTemplate = () => `
   </div>
   <div class="sidebar" id="sidebar">
     <div class="sidebar-item" onclick="loadContent('/notes')">Notes</div>
-    <div class="sidebar-item" onclick="loadContent('/settings')">Settings</div>
   </div>
   <div class="content" id="content">
     <h1>Welcome to the Home Page</h1>

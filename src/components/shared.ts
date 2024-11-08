@@ -17,6 +17,10 @@ export const sharedStyles = `
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       width: 100%;
       max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
     .action-bar {
       display: flex;
@@ -37,6 +41,57 @@ export const sharedStyles = `
     }
     .theme-toggle {
       cursor: pointer;
+    }
+    .user-icon {
+      cursor: pointer;
+      position: relative;
+    }
+    .menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      background-color: var(--secondary-color);
+      color: var(--text-color);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      min-width: 150px;
+    }
+    .menu-item {
+      padding: 10px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .menu-item:hover {
+      background-color: var(--primary-color);
+    }
+    .sidebar {
+      width: 200px;
+      background-color: var(--secondary-color);
+      color: var(--text-color);
+      position: fixed;
+      top: 40px; /* Adjusted to be directly below the action bar */
+      left: 0;
+      height: calc(100% - 40px); /* Adjusted to account for the action bar height */
+      display: block; /* Changed from none to block for initial state */
+    }
+    .sidebar-item {
+      padding: 10px;
+      cursor: pointer;
+    }
+    .sidebar-item:hover {
+      background-color: #c0c0c0; /* Slightly darker grey for hover effect */
+    }
+    .content {
+      margin-top: 50px; /* Adjusted to account for the action bar height */
+      margin-left: 200px; /* Set initial margin to match sidebar width */
+      transition: margin-left 0.3s;
+      padding: 20px; /* Add some padding */
+    }
+    .content.collapsed {
+      margin-left: 0; /* Changed from expanded to collapsed pattern */
     }
     :root {
       --primary-color: white;
