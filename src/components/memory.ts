@@ -158,16 +158,16 @@ export const memoryTemplate = () => `
       const folderName = 'New Folder';
       
       newFolder.className = 'folder';
-      newFolder.innerHTML = \`
+      newFolder.innerHTML = `
         <div class="folder-edit-menu">
           <button class="folder-edit-button" onclick="deleteFolder(this)">Delete</button>
           <button class="folder-edit-button" onclick="toggleFolderNameEdit(this)">Change Name</button>
           <button class="folder-edit-button" onclick="togglePrivate(this)">Make Private</button>
           <button class="folder-edit-button" onclick="editSettings(this)">Edit Settings</button>
         </div>
-        <p class="folder-name">${folderName}</p>
-        <input type="text" class="folder-name-edit" value="${folderName}">
-      \`;
+        <p class="folder-name">\${folderName}</p>
+        <input type="text" class="folder-name-edit" value="\${folderName}">
+      `;
       
       foldersDiv.appendChild(newFolder);
     }
