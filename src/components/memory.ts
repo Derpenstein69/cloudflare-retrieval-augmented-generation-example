@@ -1,4 +1,3 @@
-
 import { sharedStyles, themeScript } from './shared'
 
 export const memoryTemplate = () => `
@@ -30,6 +29,12 @@ export const memoryTemplate = () => `
   </div>
   <div class="content" id="content">
     <h1>Memory</h1>
+    <div class="folders">
+      <div class="folder" onclick="loadContent('/memory/work')">Work</div>
+      <div class="folder" onclick="loadContent('/memory/personal')">Personal</div>
+      <div class="folder" onclick="loadContent('/memory/family')">Family</div>
+      <div class="folder" onclick="loadContent('/memory/private')">Private</div>
+    </div>
   </div>
   ${themeScript}
   <script>

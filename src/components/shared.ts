@@ -97,6 +97,25 @@ export const sharedStyles = `
       cursor: pointer;
       margin-left: 10px;
     }
+    .folders {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .folder {
+      background-color: var(--secondary-color);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .folder:hover {
+      background-color: var(--primary-color);
+    }
     :root {
       --primary-color: white;
       --secondary-color: #d3d3d3;
