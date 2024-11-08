@@ -30,6 +30,9 @@ export class SessionDO {
   }
 
   static createSessionId(namespace: DurableObjectNamespace, sessionToken: string): DurableObjectId {
-    return namespace.idFromString(sessionToken)
+    // Use a consistent hash of the session token
+    const encoder = new TextEncoder();
+    const data = encoder.encode(sessionToken);
+    return namespace.idFromName(sessionToken);
   }
 }

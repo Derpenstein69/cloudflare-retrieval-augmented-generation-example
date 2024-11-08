@@ -12,7 +12,6 @@ const auth = new Hono<{ Bindings: Env }>()
 // Add method not allowed handler
 auth.all('/login', async (c) => {
   if (c.req.method !== 'POST') {
-    console.log('Method not allowed for login');
     return c.text('Method not allowed', 405);
   }
   try {
@@ -40,24 +39,29 @@ auth.all('/login', async (c) => {
 
     // Generate a 64-character hex string for session ID
     const sessionToken = generateSecureKey(32); // 32 bytes = 64 hex chars
-    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
-    
-    await c.env.SESSIONS_DO.get(sessionId).fetch(new Request('https://dummy/save', {
-      method: 'POST',
-      body: email as string
-    }));
+    try {
+      const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+      const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+      await sessionDO.fetch(new Request('https://dummy/save', {
+        method: 'POST',
+        body: email as string
+      }));
 
-    setCookie(c, 'session', sessionToken, {
-      httpOnly: true,
-      secure: true,
-      path: '/',
-      sameSite: 'Strict',
-      maxAge: 60 * 60 * 24 // 24 hours
-    });
+      setCookie(c, 'session', sessionToken, {
+        httpOnly: true,
+        secure: true,
+        path: '/',
+        sameSite: 'Strict',
+        maxAge: 60 * 60 * 24 // 24 hours
+      });
 
-    console.log('User logged in:', email);
-    console.log('Session token set:', sessionToken);
-    return c.redirect('/');
+      console.log('User logged in:', email);
+      console.log('Session token set:', sessionToken);
+      return c.redirect('/');
+    } catch (sessionError) {
+      console.error('Session creation error:', sessionError);
+      return c.json({ error: 'Failed to create session' }, 500);
+    }
   } catch (error) {
     console.error('Login error:', error);
     return c.json({ error: 'Internal server error' }, 500);
