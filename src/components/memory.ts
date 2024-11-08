@@ -217,6 +217,34 @@ export const memoryTemplate = () => `
       // TODO: Implement knowledge addition
       console.log('Add knowledge clicked');
     }
+
+    // Add event listener for folder rename on Enter key
+    function setupFolderRenameListeners() {
+      document.querySelectorAll('.folder-name-edit').forEach(input => {
+        input.addEventListener('keyup', (e) => {
+          if (e.key === 'Enter') {
+            const folder = input.closest('.folder');
+            const nameP = folder.querySelector('.folder-name');
+            nameP.textContent = input.value;
+            nameP.style.display = 'block';
+            input.style.display = 'none';
+          }
+        });
+      });
+    }
+
+    // Add click handler to prevent folder navigation during edit mode
+    function handleFolderClick(e) {
+      if (e.target.closest('.folder-edit-menu')) {
+        e.stopPropagation();
+      }
+    }
+
+    // Initialize after DOM loads
+    document.addEventListener('DOMContentLoaded', () => {
+      setupFolderRenameListeners();
+      document.querySelector('.folders').addEventListener('click', handleFolderClick, true);
+    });
   </script>
 </body>
 </html>
