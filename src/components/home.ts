@@ -29,7 +29,7 @@ export const homeTemplate = () => `
       text-align: center;
       flex-grow: 1;
     }
-    .user-icon, .menu-toggle, .theme-toggle {
+    .user-icon, .menu-toggle, .theme-toggle, .home-button {
       cursor: pointer;
       position: relative;
     }
@@ -107,6 +107,7 @@ export const homeTemplate = () => `
 <body>
   <div class="action-bar">
     <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
+    <div class="home-button" onclick="goHome()">🏠</div>
     <div class="title">RusstCorp</div>
     <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
     <div class="user-icon" onclick="toggleMenu()">👤
@@ -119,6 +120,7 @@ export const homeTemplate = () => `
   </div>
   <div class="sidebar" id="sidebar">
     <div class="sidebar-item" onclick="loadContent('/notes')">Notes</div>
+    <div class="sidebar-item" onclick="loadContent('/memory')">Memory</div>
   </div>
   <div class="content" id="content">
     <h1>RusstCorp - Complexity Simplified, with a side of style</h1>
@@ -138,6 +140,9 @@ export const homeTemplate = () => `
         sidebar.style.display = 'none';
         content.classList.add('collapsed');
       }
+    }
+    function goHome() {
+      window.location.href = '/';
     }
     // Theme management
     function getSystemTheme() {

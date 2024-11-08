@@ -23,6 +23,10 @@ export const profileTemplate = () => `
       </ul>
     </div>
   </div>
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-item" onclick="loadContent('/notes')">Notes</div>
+    <div class="sidebar-item" onclick="loadContent('/memory')">Memory</div>
+  </div>
   <div class="content" id="content">
     <h1>Profile</h1>
     <form id="profile-form" method="POST" action="/profile">
