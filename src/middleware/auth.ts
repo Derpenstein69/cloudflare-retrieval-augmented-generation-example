@@ -12,7 +12,14 @@ export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: Functi
   }
 
   try {
-    const response = await c.env.SESSIONS_DO.get(sessionId).fetch(new Request('https://dummy/get'))
+    const sessionDO = c.env.SESSIONS_DO.get(sessionId)
+    const response = await sessionDO.fetch(new Request('https://dummy/get'))
+    
+    if (!response.ok) {
+      console.error('Session fetch failed:', await response.text());
+      return c.redirect('/login');
+    }
+
     const email = await response.text()
     
     if (!email) {
@@ -22,7 +29,8 @@ export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: Functi
 
     console.log('Authenticated user:', email);
     c.set('userEmail', email)
-    return next()
+    const result = await next()
+    return result
   } catch (error) {
     console.error('Auth middleware error:', error)
     return c.redirect('/login')

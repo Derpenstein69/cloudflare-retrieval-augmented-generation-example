@@ -78,18 +78,7 @@ app.route('/auth', authRoutes)
 const protectedRoutes = new Hono<{ Bindings: Env }>()
 
 // Add auth middleware to all protected routes
-protectedRoutes.use('*', async (c, next) => {
-  try {
-    console.log('Authenticating request:', c.req.path);
-    const start = Date.now();
-    await authMiddleware(c, next);
-    const duration = Date.now() - start;
-    console.log('Authentication completed for', c.req.path, 'in', duration, 'ms');
-  } catch (error) {
-    console.error('Authentication failed:', error);
-    return c.redirect('/login');
-  }
-})
+protectedRoutes.use('*', authMiddleware)
 
 // Protected routes
 protectedRoutes.get('/', (c) => c.html(homeTemplate()))
