@@ -1,26 +1,28 @@
 import { getCookie } from 'hono/cookie'
-import { verify } from 'hono/jwt'
 import type { Env } from '../types'
 import { Context } from 'hono'
 
 export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: Function) => {
-  const token = getCookie(c, 'session')
-  console.log('Session token:', token);
-  if (!token) {
+  const sessionId = getCookie(c, 'session')
+  console.log('Session token:', sessionId);
+  
+  if (!sessionId) {
     console.log('No session token found, redirecting to login');
     return c.redirect('/login')
   }
 
   try {
-    const payload = await verify(token, 'your-secret-key')
-    if (!payload || !payload.email) {
-      console.error('Invalid token payload:', payload);
+    const response = await c.env.SESSIONS_DO.get(sessionId).fetch(new Request('https://dummy/get'))
+    const email = await response.text()
+    
+    if (!email) {
+      console.error('No email found in session');
       return c.redirect('/login');
     }
-    console.log('Token payload:', payload);
-    c.set('userEmail', payload.email)
-    console.log('Authenticated user:', payload.email);
-    return await next()
+
+    console.log('Authenticated user:', email);
+    c.set('userEmail', email)
+    return next()
   } catch (error) {
     console.error('Auth middleware error:', error)
     return c.redirect('/login')

@@ -70,60 +70,24 @@ app.use('*', async (c, next) => {
 });
 
 // Public routes (no auth required)
-app.get('/login', async (c) => {
-  try {
-    return c.html(loginTemplate())
-  } catch (err) {
-    console.error('Login template error:', err);
-    throw err;
-  }
-})
-
-app.get('/signup', async (c) => {
-  try {
-    console.log('Rendering signup template');
-    const template = signupTemplate();
-    console.log('Signup template rendered successfully');
-    return c.html(template);
-  } catch (err) {
-    console.error('Signup template error:', err);
-    throw err;
-  }
-})
-
-// Mount auth routes for POST handlers
+app.get('/login', async (c) => c.html(loginTemplate()))
+app.get('/signup', async (c) => c.html(signupTemplate()))
 app.route('/auth', authRoutes)
 
-// Protected routes middleware - everything after this requires authentication
-app.use('/*', async (c, next) => {
-  // Skip auth check for login, signup, and auth routes
-  if (c.req.path.startsWith('/login') || 
-      c.req.path.startsWith('/signup') || 
-      c.req.path.startsWith('/auth')) {
-    console.log('Skipping auth check for public route:', c.req.path);
-    return next()
-  }
+// Create a new Hono instance for protected routes
+const protected = new Hono<{ Bindings: Env }>()
 
-  try {
-    console.log('Authenticating request:', c.req.path);
-    const start = Date.now();
-    await authMiddleware(c, next);
-    const duration = Date.now() - start;
-    console.log('Authentication completed for', c.req.path, 'in', duration, 'ms');
-  } catch (error) {
-    console.error('Authentication failed:', error);
-    return c.redirect('/login');
-  }
-})
+// Add auth middleware to all protected routes
+protected.use('*', authMiddleware)
 
 // Protected routes
-app.get('/', async (c) => {
-  console.log('Rendering home template');
-  return c.html(homeTemplate())
-})
-app.route('/notes', notesRoutes)
-app.route('/profile', profileRoutes)
-app.route('/settings', settingsRoutes)
+protected.get('/', (c) => c.html(homeTemplate()))
+protected.route('/notes', notesRoutes)
+protected.route('/profile', profileRoutes)
+protected.route('/settings', settingsRoutes)
+
+// Mount protected routes
+app.route('', protected)
 
 app.get('/query', async (c) => {
   const question = c.req.query('text') || "What is the square root of 9?"
