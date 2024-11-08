@@ -9,6 +9,7 @@ export type Env = {
 
 export type Note = {
   id: string;
+  userEmail: string; // Ensure userEmail field is included
   text: string;
 };
 

@@ -26,12 +26,14 @@ notes.get('/', async (c) => {
 
   console.log('DATABASE binding:', c.env.DATABASE); // Log DATABASE binding
 
-  const notesData = await c.env.DATABASE.prepare('SELECT * FROM notes WHERE userEmail = ?').bind(userEmail).all<Note>();
-  if (!notesData.results) {
-    return c.json({ error: 'No notes found' }, 404);
+  try {
+    const query = `SELECT * FROM notes WHERE userEmail = ?`
+    const { results } = await c.env.DATABASE.prepare(query).bind(userEmail).all()
+    return c.json(results || [])
+  } catch (error) {
+    console.error('Error fetching notes:', error)
+    return c.json({ error: 'Failed to fetch notes' }, 500)
   }
-
-  return c.json(notesData.results);
 });
 
 notes.post('/', async (c) => {
@@ -54,10 +56,16 @@ notes.post('/', async (c) => {
   }
 
   const { text } = await c.req.json();
-  const noteId = crypto.randomUUID();
-  await c.env.DATABASE.prepare('INSERT INTO notes (id, userEmail, text) VALUES (?, ?, ?)').bind(noteId, userEmail, text).run();
+  console.log('Adding note for user:', userEmail)
 
-  return c.json({ message: 'Note created successfully', id: noteId });
+  try {
+    const query = `INSERT INTO notes (userEmail, text) VALUES (?, ?)`
+    await c.env.DATABASE.prepare(query).bind(userEmail, text).run()
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error adding note:', error)
+    return c.json({ error: 'Failed to add note' }, 500)
+  }
 });
 
 export default notes;
