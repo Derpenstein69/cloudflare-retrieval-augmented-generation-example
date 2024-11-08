@@ -4,6 +4,7 @@ import { sign, verify } from 'hono/jwt'
 import { hashPassword, generateSecureKey } from '../utils'
 import { loginTemplate } from '../components/login'
 import { signupTemplate } from '../components/signup'
+import { SessionDO } from '../session'
 import type { Env } from '../types'
 
 const auth = new Hono<{ Bindings: Env }>()
@@ -37,7 +38,8 @@ auth.all('/login', async (c) => {
       return c.json({ error: 'Invalid credentials' }, 401);
     }
 
-    const sessionToken = generateSecureKey();
+    // Generate a 64-character hex string for session ID
+    const sessionToken = generateSecureKey(32); // 32 bytes = 64 hex chars
     const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
     
     await c.env.SESSIONS_DO.get(sessionId).fetch(new Request('https://dummy/save', {

@@ -8,5 +8,8 @@ export async function hashPassword(password: string): Promise<string> {
 export function generateSecureKey(length: number = 32): string {
   const array = new Uint8Array(length);
   crypto.getRandomValues(array);
-  return btoa(String.fromCharCode(...array));
+  // Convert to 64-character hex string
+  return Array.from(array)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
