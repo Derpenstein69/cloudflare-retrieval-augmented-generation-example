@@ -1,41 +1,60 @@
 import { Hono } from 'hono'
-import { methodOverride } from 'hono/method-override'
-import type { Env } from '../types'
+import { getCookie } from 'hono/cookie'
+import type { Env, Note } from '../types'
 
 const notes = new Hono<{ Bindings: Env }>()
 
-notes.get('/notes.json', async (c) => {
-  const query = `SELECT * FROM notes`
-  const { results } = await c.env.DATABASE.prepare(query).all()
-  return c.json(results);
-})
-
-notes.get('/notes', async (c) => {
-  try {
-    const userEmail = c.get('userEmail');
-    console.log('Fetching notes for user:', userEmail);
-    // Add your notes fetching logic here
-    return c.json({ message: 'Notes route working' });
-  } catch (error) {
-    console.error('Notes route error:', error);
-    return c.json({ error: 'Failed to fetch notes' }, 500);
+notes.get('/', async (c) => {
+  const sessionToken = getCookie(c, 'session')
+  if (!sessionToken) {
+    return c.redirect('/login')
   }
+
+  const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken)
+  const sessionDO = c.env.SESSIONS_DO.get(sessionId)
+  const response = await sessionDO.fetch(new Request('https://dummy/get'))
+  
+  if (!response.ok) {
+    return c.redirect('/login')
+  }
+
+  const userEmail = await response.text()
+  if (!userEmail) {
+    return c.redirect('/login')
+  }
+
+  const notesData = await c.env.DATABASE.prepare('SELECT * FROM notes WHERE userEmail = ?').bind(userEmail).all<Note>()
+  if (!notesData.results) {
+    return c.json({ error: 'No notes found' }, 404)
+  }
+
+  return c.json(notesData.results)
 })
 
-notes.use('/notes/:id', methodOverride({ app: notes }))
-notes.delete('/notes/:id', async (c) => {
-  const { id } = c.req.param();
-  const query = `DELETE FROM notes WHERE id = ?`
-  await c.env.DATABASE.prepare(query).bind(id).run()
-  await c.env.VECTOR_INDEX.deleteByIds([id])
-  return c.redirect('/notes')
-})
+notes.post('/', async (c) => {
+  const sessionToken = getCookie(c, 'session')
+  if (!sessionToken) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
 
-notes.post('/notes', async (c) => {
-  const { text } = await c.req.json();
-  if (!text) return c.text("Missing text", 400);
-  await c.env.RAG_WORKFLOW.create({ params: { text } })
-  return c.text("Created note", 201);
+  const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken)
+  const sessionDO = c.env.SESSIONS_DO.get(sessionId)
+  const response = await sessionDO.fetch(new Request('https://dummy/get'))
+  
+  if (!response.ok) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  const userEmail = await response.text()
+  if (!userEmail) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  const { text } = await c.req.json()
+  const noteId = crypto.randomUUID()
+  await c.env.DATABASE.prepare('INSERT INTO notes (id, userEmail, text) VALUES (?, ?, ?)').bind(noteId, userEmail, text).run()
+
+  return c.json({ message: 'Note created successfully', id: noteId })
 })
 
 export default notes

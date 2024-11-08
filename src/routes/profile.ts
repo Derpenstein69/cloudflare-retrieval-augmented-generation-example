@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { getCookie } from 'hono/cookie';
 import { profileTemplate } from '../components/profile';
 import type { Env } from '../types';
 
