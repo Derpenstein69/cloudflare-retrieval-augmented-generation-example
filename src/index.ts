@@ -117,10 +117,13 @@ app.use('/*', async (c, next) => {
 })
 
 // Protected routes
-app.get('/', async (c) => c.html(homeTemplate()))
-app.route('/', notesRoutes) // Change this line to mount at root
-app.route('/', profileRoutes)
-app.route('/', settingsRoutes)
+app.get('/', async (c) => {
+  console.log('Rendering home template');
+  return c.html(homeTemplate())
+})
+app.route('/notes', notesRoutes)
+app.route('/profile', profileRoutes)
+app.route('/settings', settingsRoutes)
 
 app.get('/query', async (c) => {
   const question = c.req.query('text') || "What is the square root of 9?"

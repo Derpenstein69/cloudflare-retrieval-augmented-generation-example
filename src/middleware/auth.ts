@@ -20,7 +20,7 @@ export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: Functi
     console.log('Token payload:', payload);
     c.set('userEmail', payload.email)
     console.log('Authenticated user:', payload.email);
-    return next()
+    await next()
   } catch (error) {
     console.error('Auth middleware error:', error)
     return c.redirect('/login')
