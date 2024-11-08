@@ -11,7 +11,7 @@ globs = ["**/*.html"]
 fallthrough = true
 
 [[d1_databases]]
-binding = "DB"
+binding = "DATABASE"  # Ensure the binding name matches the code
 database_name = "RUSSTCORP-AI-DATABASE"
 database_id = "28b28058-1a2c-4dfa-821a-f633bff5d5e9"
 
