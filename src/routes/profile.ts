@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { profileTemplate } from '../components/profile';
+import { SessionDO } from '../session';
 import type { Env } from '../types';
 
 const profile = new Hono<{ Bindings: Env }>();

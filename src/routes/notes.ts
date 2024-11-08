@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { getCookie } from 'hono/cookie'
+import { SessionDO } from '../session'
 import type { Env, Note } from '../types'
 
 const notes = new Hono<{ Bindings: Env }>()
