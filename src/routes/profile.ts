@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { profileTemplate } from '../components/profile';
+import { memoryTemplate } from '../components/memory';
 import { SessionDO } from '../session';
 import type { Env } from '../types';
 
@@ -61,6 +62,33 @@ profile.post('/', async (c) => {
   
   await c.env.USERS_KV.put(userEmail, JSON.stringify(user));
   return c.json({ message: 'Profile updated successfully' });
+});
+
+profile.get('/memory', async (c) => {
+  const sessionToken = getCookie(c, 'session');
+  if (!sessionToken) {
+    return c.redirect('/login');
+  }
+
+  const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+  const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+  const response = await sessionDO.fetch(new Request('https://dummy/get'));
+  
+  if (!response.ok) {
+    return c.redirect('/login');
+  }
+
+  const userEmail = await response.text();
+  if (!userEmail) {
+    return c.redirect('/login');
+  }
+
+  const userData = await c.env.USERS_KV.get(userEmail);
+  if (!userData) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  return c.html(memoryTemplate());
 });
 
 export default profile;

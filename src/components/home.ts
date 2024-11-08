@@ -1,4 +1,10 @@
 export const homeTemplate = () => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Home | RusstCorp</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
   <style>
     body {
       margin: 0;
@@ -97,6 +103,8 @@ export const homeTemplate = () => `
       --text-color: white;
     }
   </style>
+</head>
+<body>
   <div class="action-bar">
     <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
     <div class="title">RusstCorp</div>
@@ -113,7 +121,7 @@ export const homeTemplate = () => `
     <div class="sidebar-item" onclick="loadContent('/notes')">Notes</div>
   </div>
   <div class="content" id="content">
-    <h1>Welcome to the Home Page</h1>
+    <h1>RusstCorp - Complexity Simplified, with a side of style</h1>
   </div>
   <script>
     function toggleMenu() {
@@ -260,4 +268,6 @@ export const homeTemplate = () => `
       loadContent(window.location.pathname);
     }
   </script>
+</body>
+</html>
 `;

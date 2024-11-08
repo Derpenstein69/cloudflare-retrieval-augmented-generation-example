@@ -93,6 +93,10 @@ export const sharedStyles = `
     .content.collapsed {
       margin-left: 0; /* Changed from expanded to collapsed pattern */
     }
+    .home-button {
+      cursor: pointer;
+      margin-left: 10px;
+    }
     :root {
       --primary-color: white;
       --secondary-color: #d3d3d3;
