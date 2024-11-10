@@ -270,6 +270,16 @@ const baseLayout = (title: string, content: string) => `
         menu.style.display = 'none';
       }
     });
+  	document.getElementById('loginForm').addEventListener('htmx:afterRequest', function(event) {
+    	const response = JSON.parse(event.detail.xhr.response);
+    	if (response.success) {
+      	window.location.href = response.redirect;
+    	} else {
+      	const errorContainer = document.getElementById('error-messages');
+      	errorContainer.textContent = response.error;
+      	errorContainer.style.display = 'block';
+    	}
+  	});
 
     // Add active state to current page
     document.addEventListener('DOMContentLoaded', () => {
@@ -563,11 +573,12 @@ export function validateEnv(env: Env): void {
   }
 }
 
-// Login form component
+// Login form component with proper HTMX attributes
 const loginForm = `
-<div class="auth-form">
+<div class="auth-container">
   <h1>Login</h1>
-  <form id="loginForm">
+  <div id="error-messages" class="error-container" style="display: none;"></div>
+  <form id="loginForm" hx-post="/api/login" hx-target="#error-messages">
     <div class="form-group">
       <label for="email">Email</label>
       <input type="email" id="email" name="email" required>
@@ -579,37 +590,6 @@ const loginForm = `
     <button type="submit">Login</button>
   </form>
   <p>Don't have an account? <a href="/signup">Sign up</a></p>
-  <script>
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const form = e.target;
-      const errorContainer = document.getElementById('error-messages');
-
-      try {
-        const response = await fetch('/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: form.email.value,
-            password: form.password.value
-          })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          window.location.href = '/';
-        } else {
-          throw new Error(data.error || 'Login failed');
-        }
-      } catch (error) {
-        errorContainer.textContent = error.message;
-        errorContainer.style.display = 'block';
-      }
-    });
-  </script>
 </div>
 `;
 
@@ -658,4 +638,298 @@ export const templates = {
     }
   },
   // ...other templates...
+  signup: () => {
+    try {
+      log('DEBUG', 'Rendering signup template');
+      const html = baseLayout('Sign Up', `
+        <div class="auth-container">
+          <h1>Create Account</h1>
+          <div id="error-messages" class="error-container" style="display: none;"></div>
+          <form id="signupForm" hx-post="/api/signup" hx-target="#error-messages">
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input type="password" id="password" name="password" required minlength="8">
+              <small>Must be at least 8 characters with numbers and special characters</small>
+            </div>
+            <div class="form-group">
+              <label for="confirm_password">Confirm Password</label>
+              <input type="password" id="confirm_password" name="confirm_password" required>
+            </div>
+            <button type="submit">Sign Up</button>
+          </form>
+          <p>Already have an account? <a href="/login">Login</a></p>
+        </div>
+        <script>
+          document.getElementById('signupForm').addEventListener('htmx:afterRequest', function(event) {
+            const response = JSON.parse(event.detail.xhr.response);
+            if (response.success) {
+              window.location.href = '/dashboard';
+            } else {
+              const errorContainer = document.getElementById('error-messages');
+              errorContainer.textContent = response.error;
+              errorContainer.style.display = 'block';
+            }
+          });
+        </script>
+      `);
+      log('DEBUG', 'Signup template rendered successfully');
+      return html;
+    } catch (error) {
+      log('ERROR', 'Failed to render signup template', { error });
+      throw error;
+    }
+  },
+
+  dashboard: () => {
+    try {
+      log('DEBUG', 'Rendering dashboard template');
+      const html = baseLayout('Dashboard', `
+        <div class="dashboard-container">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <h3>Notes</h3>
+              <div id="notes-count" hx-get="/api/stats/notes" hx-trigger="load">
+                Loading...
+              </div>
+            </div>
+            <div class="stat-card">
+              <h3>Memory Folders</h3>
+              <div id="folders-count" hx-get="/api/stats/folders" hx-trigger="load">
+                Loading...
+              </div>
+            </div>
+          </div>
+          <div class="recent-activity">
+            <h2>Recent Activity</h2>
+            <div id="activity-feed"
+                 hx-get="/api/activity"
+                 hx-trigger="load, every 30s"
+                 hx-target="this">
+              Loading...
+            </div>
+          </div>
+        </div>
+      `);
+      log('DEBUG', 'Dashboard template rendered successfully');
+      return html;
+    } catch (error) {
+      log('ERROR', 'Failed to render dashboard template', { error });
+      throw error;
+    }
+  },
+
+  notes: (notes: any[]) => {
+    try {
+      log('DEBUG', 'Rendering notes template');
+      const html = baseLayout('Notes', `
+        <div class="notes-container">
+          <div class="notes-header">
+            <h2>My Notes</h2>
+            <button onclick="window.location.href='/write'" class="primary">
+              Create Note
+            </button>
+          </div>
+          <div class="search-bar">
+            <input type="search"
+                   placeholder="Search notes..."
+                   hx-get="/api/notes/search"
+                   hx-trigger="keyup changed delay:500ms"
+                   hx-target="#notes-list">
+          </div>
+          <div id="notes-list" class="notes-grid">
+            ${notes.map(note => `
+              <div class="note-card">
+                <h3>${note.title || 'Untitled'}</h3>
+                <p>${note.text.substring(0, 100)}...</p>
+                <div class="note-meta">
+                  <span>Created: ${new Date(note.createdAt).toLocaleDateString()}</span>
+                  ${note.tags?.length ? `<span>Tags: ${note.tags.join(', ')}</span>` : ''}
+                </div>
+                <div class="note-actions">
+                  <button onclick="editNote('${note.id}')">Edit</button>
+                  <button onclick="deleteNote('${note.id}')" class="danger">Delete</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        <script>
+          function editNote(id) {
+            window.location.href = \`/notes/\${id}/edit\`;
+          }
+
+          async function deleteNote(id) {
+            if (!confirm('Are you sure you want to delete this note?')) return;
+
+            try {
+              const response = await fetch(\`/api/notes/\${id}\`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+              });
+
+              if (!response.ok) throw new Error('Failed to delete note');
+
+              document.querySelector(\`[data-note-id="\${id}"]\`).remove();
+              showToast('Note deleted successfully');
+            } catch (error) {
+              showToast(error.message, 'error');
+            }
+          }
+        </script>
+      `);
+      log('DEBUG', 'Notes template rendered successfully');
+      return html;
+    } catch (error) {
+      log('ERROR', 'Failed to render notes template', { error });
+      throw error;
+    }
+  },
+
+  memory: () => {
+    try {
+      log('DEBUG', 'Rendering memory template');
+      const html = baseLayout('Memory', `
+        <div class="memory-container">
+          <div class="folders-header">
+            <h2>Memory Folders</h2>
+            <button onclick="createFolder()" class="primary">New Folder</button>
+          </div>
+          <div id="folders-grid"
+               hx-get="/api/memory/folders"
+               hx-trigger="load, folderChanged from:body">
+            Loading folders...
+          </div>
+        </div>
+        <script>
+          async function createFolder() {
+            const name = prompt('Enter folder name:');
+            if (!name) return;
+
+            try {
+              const response = await fetch('/api/memory/folders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+              });
+
+              if (!response.ok) throw new Error('Failed to create folder');
+
+              htmx.trigger('#folders-grid', 'folderChanged');
+              showToast('Folder created successfully');
+            } catch (error) {
+              showToast(error.message, 'error');
+            }
+          }
+        </script>
+      `);
+      log('DEBUG', 'Memory template rendered successfully');
+      return html;
+    } catch (error) {
+      log('ERROR', 'Failed to render memory template', { error });
+      throw error;
+    }
+  },
+
+  settings: () => {
+    try {
+      log('DEBUG', 'Rendering settings template');
+      const html = baseLayout('Settings', `
+        <div class="settings-container">
+          <h2>Account Settings</h2>
+          <form id="settings-form" hx-post="/api/settings" hx-target="#settings-message">
+            <div class="form-group">
+              <label for="current_password">Current Password</label>
+              <input type="password" id="current_password" name="current_password">
+            </div>
+            <div class="form-group">
+              <label for="new_password">New Password</label>
+              <input type="password" id="new_password" name="new_password">
+            </div>
+            <div class="form-group">
+              <label for="theme">Theme</label>
+              <select id="theme" name="theme">
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </div>
+            <div id="settings-message"></div>
+            <button type="submit">Save Changes</button>
+          </form>
+        </div>
+      `);
+      log('DEBUG', 'Settings template rendered successfully');
+      return html;
+    } catch (error) {
+      log('ERROR', 'Failed to render settings template', { error });
+      throw error;
+    }
+  },
+
+  profile: (userData: any) => {
+    try {
+      log('DEBUG', 'Rendering profile template');
+      const html = baseLayout('Profile', `
+        <div class="profile-container">
+          <h2>Profile</h2>
+          <div class="profile-info">
+            <div class="avatar-section">
+              <img src="${userData.avatarUrl || '/default-avatar.png'}" alt="Profile picture">
+              <button onclick="updateAvatar()">Change Picture</button>
+            </div>
+            <form id="profile-form" hx-post="/api/profile" hx-target="#profile-message">
+              <div class="form-group">
+                <label for="displayName">Display Name</label>
+                <input type="text" id="displayName" name="displayName"
+                       value="${userData.displayName || ''}" required>
+              </div>
+              <div class="form-group">
+                <label for="bio">Bio</label>
+                <textarea id="bio" name="bio">${userData.bio || ''}</textarea>
+              </div>
+              <div id="profile-message"></div>
+              <button type="submit">Update Profile</button>
+            </form>
+          </div>
+        </div>
+        <script>
+          async function updateAvatar() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async () => {
+              const file = input.files?.[0];
+              if (!file) return;
+
+              const formData = new FormData();
+              formData.append('avatar', file);
+
+              try {
+                const response = await fetch('/api/profile/avatar', {
+                  method: 'POST',
+                  body: formData
+                });
+
+                if (!response.ok) throw new Error('Failed to update avatar');
+
+                location.reload();
+              } catch (error) {
+                showToast(error.message, 'error');
+              }
+            };
+            input.click();
+          }
+        </script>
+      `);
+      log('DEBUG', 'Profile template rendered successfully');
+      return html;
+    } catch (error) {
+      log('ERROR', 'Failed to render profile template', { error });
+      throw error;
+    }
+  }
 };
