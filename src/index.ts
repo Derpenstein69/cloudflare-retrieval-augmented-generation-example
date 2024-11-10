@@ -1,12 +1,8 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { authMiddleware, validateEnv } from './auth'
+import routes from './routes'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
-import { authMiddleware, validateEnv } from './middleware/auth'
-import authRoutes from './routes/auth'
-import notesRoutes from './routes/notes'
-import profileRoutes from './routes/profile'
-import settingsRoutes from './routes/settings'
-import memoryRoutes from './routes/memory'
 import { homeTemplate } from './components/home'
 import { loginTemplate } from './components/login'
 import { signupTemplate } from './components/signup'
@@ -74,7 +70,7 @@ app.use('*', async (c, next) => {
 // Public routes (no auth required)
 app.get('/login', async (c) => c.html(loginTemplate()))
 app.get('/signup', async (c) => c.html(signupTemplate()))
-app.route('/auth', authRoutes)
+app.route('/auth', routes.authRoutes)
 
 // Create a new Hono instance for protected routes
 const protectedRoutes = new Hono<{ Bindings: Env }>()
@@ -84,10 +80,10 @@ protectedRoutes.use('*', authMiddleware)
 
 // Protected routes
 protectedRoutes.get('/', (c) => c.html(homeTemplate()))
-protectedRoutes.route('/notes', notesRoutes) // Ensure notes route is mounted
-protectedRoutes.route('/profile', profileRoutes) // Ensure profile route is mounted
-protectedRoutes.route('/memory', memoryRoutes) // Ensure memory route is mounted
-protectedRoutes.route('/settings', settingsRoutes)
+protectedRoutes.route('/notes', routes.notesRoutes) // Ensure notes route is mounted
+protectedRoutes.route('/profile', routes.profileRoutes) // Ensure profile route is mounted
+protectedRoutes.route('/memory', routes.memoryRoutes) // Ensure memory route is mounted
+protectedRoutes.route('/settings', routes.settingsRoutes)
 
 // Mount protected routes
 app.route('', protectedRoutes)

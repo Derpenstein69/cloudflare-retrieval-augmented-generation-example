@@ -1,12 +1,15 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { sign } from 'hono/jwt';
-import { profileTemplate } from './components/profile';
-import { memoryTemplate } from './components/memory';
-import { notesTemplate } from './components/notes';
-import { loginTemplate } from './components/login';
-import { signupTemplate } from './components/signup';
-import { settingsTemplate } from './components/settings';
+import {
+  profileTemplate,
+  memoryTemplate,
+  notesTemplate,
+  loginTemplate,
+  signupTemplate,
+  settingsTemplate,
+  homeTemplate
+} from './Components';
 import { SessionDO } from './session';
 import { hashPassword, generateSecureKey } from './utils';
 import type { Env, Note } from './types';
