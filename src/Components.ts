@@ -258,13 +258,18 @@ const log = (level: 'DEBUG' | 'INFO' | 'ERROR' | 'WARN', message: string, data?:
 };
 
 // Enhanced render utility with better error handling and logging
-export function renderTemplate(template: () => string): string {
+export function renderTemplate(templateFn: (() => string) | string): string {
   const renderStart = performance.now();
   const requestId = crypto.randomUUID();
 
   try {
-    log('DEBUG', 'Template render started', { requestId });
-    const html = template();
+    log('DEBUG', 'Template render started', {
+      requestId,
+      // Check if templateFn is a function before accessing name
+      templateName: typeof templateFn === 'function' ? templateFn.name || 'anonymous' : 'static'
+    });
+
+    const html = typeof templateFn === 'function' ? templateFn() : templateFn;
     const renderTime = performance.now() - renderStart;
 
     log('DEBUG', 'Template render completed', {
@@ -574,15 +579,14 @@ const loginForm = `
 // Enhanced templates object
 export const templates = {
   login: () => {
-    const name = 'login'; // Add name property for logging
     try {
-      log('DEBUG', `Rendering ${name} template`);
+      log('DEBUG', 'Rendering login template');
       const html = baseLayout('Login', loginForm);
-      log('DEBUG', `${name} template rendered successfully`);
+      log('DEBUG', 'Login template rendered successfully');
       return html;
     } catch (error) {
-      log('ERROR', `Failed to render ${name} template`, { error });
+      log('ERROR', 'Failed to render login template', { error });
       throw error;
     }
   }
-};
+}
