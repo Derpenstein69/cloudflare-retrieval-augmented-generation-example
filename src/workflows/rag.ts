@@ -80,7 +80,7 @@ export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
 
         const values = embeddings.data[0];
         if (!values) {
-          throw new RAGError('Failed to generate vector embedding', 'ai');#
+          throw new RAGError('Failed to generate vector embedding', 'ai');
         }
 
         this.metrics.vectorDimensions = values.length;
