@@ -7,7 +7,6 @@ interface StateHistory {
 }
 
 class StateManager {
-  // ... other code remains the same ...
 
   private loadState(): AppState | null {
     try {
@@ -31,9 +30,6 @@ class StateManager {
       console.error('Failed to save state:', error);
     }
   }
-
-  // ... rest of the code remains the same
-}
 
   addMiddleware(fn: (state: AppState, action: string) => void): void {
     this.middlewares.push(fn);

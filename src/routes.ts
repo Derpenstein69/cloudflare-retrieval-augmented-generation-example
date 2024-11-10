@@ -11,7 +11,7 @@ import {
 } from './shared';
 import { templates, renderTemplate, errorTemplates } from './Components';
 import type { Env, User, ApiResponse } from './types';
-
+import { Logger } from './shared';
 // Enhanced error mapping
 const errors = {
   auth: {
