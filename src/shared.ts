@@ -269,9 +269,6 @@ export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: () => 
   } catch (error) {
     console.error('Auth middleware error:', error);
     deleteCookie(c, 'session', { path: '/' });
-    if (error instanceof AppError) {
-      return c.redirect('/login');
-    }
     return c.redirect('/login');
   }
 };
