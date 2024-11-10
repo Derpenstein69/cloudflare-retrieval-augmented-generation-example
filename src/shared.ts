@@ -1,9 +1,31 @@
 import type { Context } from 'hono';
+import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import type { Env } from './types';
-import { getCookie } from 'hono/cookie';
 import { errorTemplates, renderTemplate } from './Components';
 
-// ===== UTILITY FUNCTIONS =====
+// ===== SECURITY UTILS =====
+export function validatePasswordStrength(password: string): { valid: boolean; reason?: string } {
+  const minLength = 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+  if (password.length < minLength) {
+    return { valid: false, reason: 'Password must be at least 8 characters' };
+  }
+  if (!hasUpperCase || !hasLowerCase) {
+    return { valid: false, reason: 'Password must contain both upper and lowercase letters' };
+  }
+  if (!hasNumbers) {
+    return { valid: false, reason: 'Password must contain at least one number' };
+  }
+  if (!hasSpecialChar) {
+    return { valid: false, reason: 'Password must contain at least one special character' };
+  }
+  return { valid: true };
+}
+
 export async function hashPassword(password: string): Promise<string> {
   try {
     const encoder = new TextEncoder();
@@ -34,15 +56,34 @@ export function validateEmail(email: string): boolean {
   return emailRegex.test(email);
 }
 
-export async function safeExecute<T>(
-  operation: () => Promise<T>,
-  errorMessage: string
-): Promise<T> {
-  try {
-    return await operation();
-  } catch (error) {
-    console.error(`${errorMessage}:`, error);
-    throw new Error(errorMessage);
+// ===== RATE LIMITING =====
+export class RateLimiter {
+  private cache: Map<string, { count: number; resetTime: number }>;
+  private readonly limit: number;
+  private readonly windowMs: number;
+
+  constructor(limit: number = 100, windowMs: number = 60000) {
+    this.cache = new Map();
+    this.limit = limit;
+    this.windowMs = windowMs;
+  }
+
+  isRateLimited(key: string): boolean {
+    const now = Date.now();
+    const record = this.cache.get(key);
+
+    if (!record) {
+      this.cache.set(key, { count: 1, resetTime: now + this.windowMs });
+      return false;
+    }
+
+    if (now > record.resetTime) {
+      this.cache.set(key, { count: 1, resetTime: now + this.windowMs });
+      return false;
+    }
+
+    record.count++;
+    return record.count > this.limit;
   }
 }
 
@@ -51,6 +92,7 @@ export class SessionDO {
   private state: DurableObjectState;
   private env: any;
   private static readonly SESSION_TIMEOUT = 24 * 60 * 60 * 1000;
+  private static readonly RENEWAL_THRESHOLD = 60 * 60 * 1000;
 
   constructor(state: DurableObjectState, env: any) {
     this.state = state;
@@ -68,6 +110,8 @@ export class SessionDO {
           return await this.handleGet();
         case '/delete':
           return await this.handleDelete();
+        case '/renew':
+          return await this.handleRenew();
         default:
           return new Response('Not Found', { status: 404 });
       }
@@ -80,13 +124,14 @@ export class SessionDO {
   private async handleSave(request: Request): Promise<Response> {
     try {
       const email = await request.text();
-      const expires = Date.now() + SessionDO.SESSION_TIMEOUT;
+      const sessionData = {
+        email,
+        expires: Date.now() + SessionDO.SESSION_TIMEOUT,
+        lastActivity: Date.now(),
+        createdAt: Date.now()
+      };
 
-      await Promise.all([
-        this.state.storage.put('email', email),
-        this.state.storage.put('expires', expires)
-      ]);
-
+      await this.state.storage.put('session', sessionData);
       return new Response('OK');
     } catch (error) {
       console.error('Session save error:', error);
@@ -96,32 +141,52 @@ export class SessionDO {
 
   private async handleGet(): Promise<Response> {
     try {
-      const [email, expires] = await Promise.all([
-        this.state.storage.get('email'),
-        this.state.storage.get('expires')
-      ]);
-
-      if (!email || !expires) {
+      const session = await this.state.storage.get('session');
+      if (!session) {
         return new Response('Session not found', { status: 404 });
       }
 
-      if (Date.now() > expires) {
+      if (Date.now() > session.expires) {
         await this.handleDelete();
         return new Response('Session expired', { status: 401 });
       }
 
-      // Refresh session timeout on successful get
-      await this.state.storage.put('expires', Date.now() + SessionDO.SESSION_TIMEOUT);
-      return new Response(email.toString());
+      await this.state.storage.put('session', {
+        ...session,
+        lastActivity: Date.now()
+      });
+
+      return new Response(JSON.stringify(session));
     } catch (error) {
       console.error('Session get error:', error);
       throw error;
     }
   }
 
+  private async handleRenew(): Promise<Response> {
+    try {
+      const session = await this.state.storage.get('session');
+      if (!session) {
+        return new Response('Session not found', { status: 404 });
+      }
+
+      const renewedSession = {
+        ...session,
+        expires: Date.now() + SessionDO.SESSION_TIMEOUT,
+        lastActivity: Date.now()
+      };
+
+      await this.state.storage.put('session', renewedSession);
+      return new Response('OK');
+    } catch (error) {
+      console.error('Session renewal error:', error);
+      throw error;
+    }
+  }
+
   private async handleDelete(): Promise<Response> {
     try {
-      await this.state.storage.deleteAll();
+      await this.state.storage.delete('session');
       return new Response('OK');
     } catch (error) {
       console.error('Session delete error:', error);
@@ -134,9 +199,41 @@ export class SessionDO {
   }
 }
 
+// ===== ERROR HANDLING =====
+export class AppError extends Error {
+  constructor(
+    public message: string,
+    public code: string,
+    public status: number = 500,
+    public details?: any
+  ) {
+    super(message);
+    this.name = 'AppError';
+  }
+}
+
+export const safeExecute = async <T>(
+  operation: () => Promise<T>,
+  errorMessage: string
+): Promise<T> => {
+  try {
+    return await operation();
+  } catch (error) {
+    console.error(`${errorMessage}:`, error);
+    throw new AppError(errorMessage, 'OPERATION_FAILED');
+  }
+};
+
 // ===== MIDDLEWARE =====
 export const errorHandler = async (err: Error, c: Context<{ Bindings: Env }>) => {
   console.error('Application error:', err);
+  if (err instanceof AppError) {
+    return c.json({
+      error: err.message,
+      code: err.code,
+      details: err.details
+    }, err.status);
+  }
   return c.html(renderTemplate(() => errorTemplates.serverError(err)));
 };
 
@@ -147,52 +244,47 @@ export const notFoundHandler = (c: Context) => {
 export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: () => Promise<void>) => {
   try {
     const path = new URL(c.req.url).pathname;
-    console.log(`Processing request for path: ${path}`);
-
-    if (path === '/login' || path === '/signup') {
-      console.log('Skipping auth check for public route');
+    if (['/login', '/signup', '/public'].some(p => path.startsWith(p))) {
       return next();
     }
 
     const sessionToken = getCookie(c, 'session');
     if (!sessionToken) {
-      console.log('No session token found, redirecting to login');
-      return c.redirect('/login');
+      throw new AppError('No session token', 'AUTH_REQUIRED', 401);
     }
 
     const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
     const sessionDO = c.env.SESSIONS_DO.get(sessionId);
-
-    console.log('Validating session...');
     const response = await sessionDO.fetch(new Request('https://dummy/get'));
 
     if (!response.ok) {
-      console.log('Invalid session, clearing cookie and redirecting');
       deleteCookie(c, 'session', { path: '/' });
-      return c.redirect('/login');
+      throw new AppError('Invalid session', 'AUTH_FAILED', 401);
     }
 
-    const userEmail = await response.text();
-    if (!userEmail) {
-      console.log('No user email in session, clearing cookie and redirecting');
-      deleteCookie(c, 'session', { path: '/' });
-      return c.redirect('/login');
-    }
-
-    console.log('Auth successful, setting user context');
-    c.set('userEmail', userEmail);
+    const session = await response.json();
+    c.set('userEmail', session.email);
+    c.set('session', session);
     await next();
   } catch (error) {
     console.error('Auth middleware error:', error);
+    deleteCookie(c, 'session', { path: '/' });
+    if (error instanceof AppError) {
+      return c.json({ error: error.message, code: error.code }, error.status);
+    }
     return c.redirect('/login');
   }
 };
 
 // ===== ENVIRONMENT =====
-export function validateEnv(env: Env) {
+export function validateEnv(env: Env): void {
   const required = ['DATABASE', 'USERS_KV', 'SESSIONS_DO', 'AI', 'VECTOR_INDEX'];
   const missing = required.filter(key => !(key in env));
   if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+    throw new AppError(
+      `Missing required environment variables: ${missing.join(', ')}`,
+      'ENV_ERROR',
+      500
+    );
   }
 }

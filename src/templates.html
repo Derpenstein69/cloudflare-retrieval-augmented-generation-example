@@ -1,112 +1,274 @@
-<!-- Common styles and scripts that are shared across templates -->
+<!-- Common head with meta tags and resources -->
 <template id="common-head">
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="RAG Example Application">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js/styles/github.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js/highlight.min.js"></script>
+  <style>
+    .loading { opacity: 0.5; pointer-events: none; }
+    .error { border-color: red; }
+    .note { margin: 1em 0; padding: 1em; border: 1px solid #ddd; }
+    .toast { position: fixed; bottom: 1em; right: 1em; }
+    .modal { display: none; position: fixed; z-index: 100; }
+  </style>
 </template>
 
-<!-- Common navigation -->
+<!-- Enhanced navigation with active state -->
 <template id="nav-template">
-  <p>
-    <small>
-      <a href="/ui">Query</a> ・ <a href="/notes">Notes</a> ・ <a href="/write">Add note</a>
-    </small>
-  </p>
+  <nav>
+    <p>
+      <small>
+        <a href="/ui" class="${path === '/ui' ? 'active' : ''}">Query</a> ・
+        <a href="/notes" class="${path === '/notes' ? 'active' : ''}">Notes</a> ・
+        <a href="/write" class="${path === '/write' ? 'active' : ''}">Add note</a>
+      </small>
+    </p>
+  </nav>
 </template>
 
-<!-- UI Template -->
+<!-- Enhanced UI template with loading states -->
 <template id="ui-template">
   <!DOCTYPE html>
-  <html>
+  <html lang="en">
   <head>
     ${common-head}
-    <title>Chat | Cloudflare RAG Example</title>
+    <title>Chat | RAG Example</title>
     <script src="https://unpkg.com/htmx.org/dist/htmx.js"></script>
   </head>
   <body>
-    <h1>Retrieval Augmented Generation (RAG) Example</h1>
-    ${nav-template}
-    <form hx-get="/" hx-trigger="submit" hx-target="#result">
-      <textarea name="text" required placeholder="Ask the AI anything"></textarea>
-      <button type="submit">Submit</button>
-    </form>
-    <p id="result"></p>
+    <header>
+      <h1>Retrieval Augmented Generation (RAG) Example</h1>
+      ${nav-template}
+    </header>
+    <main>
+      <form hx-get="/"
+            hx-trigger="submit"
+            hx-target="#result"
+            hx-indicator="#loading">
+        <textarea name="text"
+                  required
+                  minlength="10"
+                  placeholder="Ask the AI anything"></textarea>
+        <div class="controls">
+          <button type="submit">Submit</button>
+          <div id="loading" class="htmx-indicator">Processing...</div>
+        </div>
+      </form>
+      <div id="result"></div>
+    </main>
+    <footer>
+      <p><small>© 2024 RAG Example</small></p>
+    </footer>
   </body>
   </html>
 </template>
 
-<!-- Notes Template -->
+<!-- Enhanced notes template with search and pagination -->
 <template id="notes-template">
   <!DOCTYPE html>
-  <html>
+  <html lang="en">
   <head>
     ${common-head}
-    <title>Notes | Cloudflare RAG Example</title>
+    <title>Notes | RAG Example</title>
     <script src="https://unpkg.com/mustache@latest"></script>
     <script src="https://unpkg.com/htmx.org/dist/htmx.js"></script>
     <script src="https://unpkg.com/htmx.org/dist/ext/client-side-templates.js"></script>
   </head>
   <body>
-    <h1>Notes</h1>
-    ${nav-template}
-    <div
-      hx-ext="client-side-templates"
-      hx-get="/notes.json"
-      hx-trigger="load"
-      hx-swap="innerHTML"
-      hx-target="#notes"
-      mustache-array-template="note">
-      <template id="note">
-        {{#data}}
-        <div class="note">
-          <h2>Note #{{id}}</h2>
-          <p>{{text}}</p>
-          <form method="POST" action="/notes/{{id}}">
-            <input type="hidden" name="_method" value="DELETE">
-            <button type="submit">Delete</button>
-          </form>
-        </div>
-        {{/data}}
-      </template>
-      <div id="notes"></div>
-    </div>
+    <header>
+      <h1>Notes</h1>
+      ${nav-template}
+    </header>
+    <main>
+      <div class="search-bar">
+        <input type="search"
+               placeholder="Search notes..."
+               hx-trigger="keyup changed delay:500ms"
+               hx-get="/notes/search"
+               hx-target="#notes">
+      </div>
+      <div hx-ext="client-side-templates"
+           hx-get="/notes.json"
+           hx-trigger="load"
+           hx-swap="innerHTML"
+           hx-target="#notes"
+           mustache-array-template="note">
+        <template id="note">
+          {{#data}}
+          <article class="note">
+            <h2>Note #{{id}}</h2>
+            <div class="note-content markdown-body">{{text}}</div>
+            <div class="note-meta">
+              <span>Created: {{created_at}}</span>
+              <span>Tags: {{tags}}</span>
+            </div>
+            <div class="note-actions">
+              <button onclick="shareNote('{{id}}')">Share</button>
+              <form method="POST"
+                    action="/notes/{{id}}"
+                    onsubmit="return confirm('Delete this note?')">
+                <input type="hidden" name="_method" value="DELETE">
+                <input type="hidden" name="_csrf" value="{{csrf_token}}">
+                <button type="submit">Delete</button>
+              </form>
+            </div>
+          </article>
+          {{/data}}
+          {{^data}}
+          <p>No notes found.</p>
+          {{/data}}
+        </template>
+        <div id="notes"></div>
+      </div>
+      <div class="pagination">
+        <button hx-get="/notes.json?page={{prevPage}}"
+                hx-target="#notes"
+                {{^prevPage}}disabled{{/prevPage}}>
+          Previous
+        </button>
+        <span>Page {{currentPage}} of {{totalPages}}</span>
+        <button hx-get="/notes.json?page={{nextPage}}"
+                hx-target="#notes"
+                {{^nextPage}}disabled{{/nextPage}}>
+          Next
+        </button>
+      </div>
+    </main>
+    <footer>
+      <p><small>© 2024 RAG Example</small></p>
+    </footer>
+    <script>
+      // Initialize markdown rendering
+      marked.setOptions({
+        highlight: (code, lang) => hljs.highlight(code, {language: lang}).value,
+        sanitize: true
+      });
+
+      // Render markdown content
+      document.querySelectorAll('.markdown-body').forEach(el => {
+        el.innerHTML = DOMPurify.sanitize(marked(el.textContent));
+      });
+
+      // Share functionality
+      function shareNote(id) {
+        navigator.share?.({
+          title: `Note #${id}`,
+          url: `/notes/${id}`
+        }).catch(console.error);
+      }
+    </script>
   </body>
   </html>
 </template>
 
-<!-- Write Template -->
+<!-- Enhanced write template with autosave -->
 <template id="write-template">
   <!DOCTYPE html>
-  <html>
+  <html lang="en">
   <head>
     ${common-head}
-    <title>Write | Cloudflare RAG Example</title>
+    <title>Write | RAG Example</title>
   </head>
   <body>
-    <h1>Write a new note</h1>
-    ${nav-template}
-    <form id="write-form">
-      <textarea name="text" required placeholder="Write a new note to add to the AI's knowledge base"></textarea>
-      <button type="submit">Submit</button>
-    </form>
+    <header>
+      <h1>Write a new note</h1>
+      ${nav-template}
+    </header>
+    <main>
+      <form id="write-form" class="note-form">
+        <div class="form-group">
+          <textarea name="text"
+                    required
+                    minlength="10"
+                    placeholder="Write a new note to add to the AI's knowledge base"
+                    data-autosave="note-draft"></textarea>
+          <div class="validation-message"></div>
+        </div>
+        <div class="form-group">
+          <input type="text"
+                 name="tags"
+                 placeholder="Add tags (comma separated)">
+        </div>
+        <div class="preview markdown-body"></div>
+        <div class="form-actions">
+          <button type="submit">Submit</button>
+          <button type="button" onclick="togglePreview()">Preview</button>
+        </div>
+      </form>
+    </main>
+    <footer>
+      <p><small>© 2024 RAG Example</small></p>
+    </footer>
     <script>
-      document.getElementById('write-form').addEventListener('submit', async (e) => {
+      const form = document.getElementById('write-form');
+      const textarea = form.querySelector('textarea');
+      const preview = form.querySelector('.preview');
+      let autoSaveTimer;
+
+      // Autosave functionality
+      textarea.addEventListener('input', () => {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(() => {
+          localStorage.setItem('note-draft', textarea.value);
+          showToast('Draft saved');
+        }, 1000);
+      });
+
+      // Load draft
+      const savedDraft = localStorage.getItem('note-draft');
+      if (savedDraft) {
+        textarea.value = savedDraft;
+      }
+
+      // Form submission
+      form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const text = e.target.querySelector('textarea').value;
+        const formData = new FormData(form);
+
         try {
           const response = await fetch('/notes', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ text })
+            body: JSON.stringify(Object.fromEntries(formData))
           });
-          if (response.ok) {
-            window.location.href = '/ui';
-          } else {
-            throw new Error('Failed to create note');
+
+          if (!response.ok) {
+            throw new Error(await response.text());
           }
+
+          localStorage.removeItem('note-draft');
+          showToast('Note created successfully');
+          window.location.href = '/ui';
         } catch (err) {
-          alert(err.message);
+          showToast(err.message, 'error');
         }
       });
+
+      // Preview functionality
+      function togglePreview() {
+        const text = textarea.value;
+        preview.innerHTML = text ?
+          DOMPurify.sanitize(marked(text)) :
+          '<p>Nothing to preview</p>';
+        preview.style.display = preview.style.display === 'none' ? 'block' : 'none';
+      }
+
+      // Toast notifications
+      function showToast(message, type = 'info') {
+        Toastify({
+          text: message,
+          duration: 3000,
+          gravity: 'bottom',
+          position: 'right',
+          className: type
+        }).showToast();
+      }
     </script>
   </body>
   </html>

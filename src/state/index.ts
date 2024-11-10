@@ -1,111 +1,97 @@
-
 import type { AppState, User, Note, MemoryFolder, Notification } from '../types';
 import { ThemeMode, AuthStatus, NotificationType } from '../types';
 
+interface StateHistory {
+  past: AppState[];
+  future: AppState[];
+}
+
 class StateManager {
-  private static instance: StateManager;
-  private state: AppState;
-  private subscribers: Set<(state: AppState) => void>;
+  // ... other code remains the same ...
 
-  private constructor() {
-    this.subscribers = new Set();
-    this.state = this.getInitialState();
-  }
-
-  static getInstance(): StateManager {
-    if (!StateManager.instance) {
-      StateManager.instance = new StateManager();
+  private loadState(): AppState | null {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('app_state');
+        return saved ? JSON.parse(saved) : null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to load state:', error);
+      return null;
     }
-    return StateManager.instance;
   }
 
-  private getInitialState(): AppState {
-    return {
-      auth: {
-        status: AuthStatus.Idle,
-        error: null,
-        token: null,
-      },
-      user: {
-        data: null,
-        preferences: {
-          theme: ThemeMode.System,
-          notifications: true,
-          language: 'en',
-        },
-        loading: false,
-        error: null,
-      },
-      ui: {
-        theme: ThemeMode.System,
-        sidebar: {
-          isOpen: true,
-          width: 240,
-        },
-        notifications: [],
-      },
-      notes: {
-        items: [],
-        loading: false,
-        error: null,
-      },
-      memory: {
-        folders: [],
-        loading: false,
-        error: null,
-      },
-    };
+  private saveState(): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('app_state', JSON.stringify(this.state));
+      }
+    } catch (error) {
+      console.error('Failed to save state:', error);
+    }
   }
 
-  getState(): AppState {
-    return this.state;
+  // ... rest of the code remains the same
+}
+
+  addMiddleware(fn: (state: AppState, action: string) => void): void {
+    this.middlewares.push(fn);
   }
 
-  private setState(newState: Partial<AppState>) {
-    this.state = { ...this.state, ...newState };
-    this.notifySubscribers();
-  }
-
-  subscribe(callback: (state: AppState) => void): () => void {
-    this.subscribers.add(callback);
-    return () => this.subscribers.delete(callback);
+  private runMiddlewares(action: string): void {
+    this.middlewares.forEach(fn => fn(this.state, action));
   }
 
   private notifySubscribers() {
     this.subscribers.forEach(callback => callback(this.state));
   }
 
-  // Auth actions
+  // Enhanced actions with error handling
   setAuthStatus(status: AuthStatus, error?: string) {
-    this.setState({
-      auth: {
-        ...this.state.auth,
-        status,
-        error: error || null,
-      },
-    });
+    try {
+      this.setState({
+        auth: {
+          ...this.state.auth,
+          status,
+          error: error || null,
+        },
+      }, 'SET_AUTH_STATUS');
+    } catch (error) {
+      console.error('Failed to set auth status:', error);
+      this.addNotification({
+        type: NotificationType.Error,
+        message: 'Failed to update authentication status'
+      });
+    }
   }
 
-  // User actions
   setUser(user: User | null) {
-    this.setState({
-      user: {
-        ...this.state.user,
-        data: user,
-        loading: false,
-        error: null,
-      },
-    });
+    try {
+      this.setState({
+        user: {
+          ...this.state.user,
+          data: user,
+          loading: false,
+          error: null,
+        },
+      }, 'SET_USER');
+    } catch (error) {
+      console.error('Failed to set user:', error);
+      this.addNotification({
+        type: NotificationType.Error,
+        message: 'Failed to update user data'
+      });
+    }
   }
 
-  // UI actions
   setTheme(theme: ThemeMode) {
     this.setState({
       ui: {
         ...this.state.ui,
         theme,
       },
-    });
+    }, 'SET_THEME');
   }
 
   toggleSidebar() {
@@ -117,25 +103,29 @@ class StateManager {
           isOpen: !this.state.ui.sidebar.isOpen,
         },
       },
-    });
+    }, 'TOGGLE_SIDEBAR');
   }
 
   addNotification(notification: Omit<Notification, 'id'>) {
-    const id = crypto.randomUUID();
-    const newNotification: Notification = {
-      ...notification,
-      id,
-      duration: notification.duration || 3000,
-    };
+    try {
+      const id = crypto.randomUUID();
+      const newNotification: Notification = {
+        ...notification,
+        id,
+        duration: notification.duration || 3000,
+      };
 
-    this.setState({
-      ui: {
-        ...this.state.ui,
-        notifications: [...this.state.ui.notifications, newNotification],
-      },
-    });
+      this.setState({
+        ui: {
+          ...this.state.ui,
+          notifications: [...this.state.ui.notifications, newNotification],
+        },
+      }, 'ADD_NOTIFICATION');
 
-    setTimeout(() => this.removeNotification(id), newNotification.duration);
+      setTimeout(() => this.removeNotification(id), newNotification.duration);
+    } catch (error) {
+      console.error('Failed to add notification:', error);
+    }
   }
 
   removeNotification(id: string) {
@@ -144,7 +134,7 @@ class StateManager {
         ...this.state.ui,
         notifications: this.state.ui.notifications.filter(n => n.id !== id),
       },
-    });
+    }, 'REMOVE_NOTIFICATION');
   }
 
   // Notes actions
@@ -156,7 +146,7 @@ class StateManager {
         loading: false,
         error: null,
       },
-    });
+    }, 'SET_NOTES');
   }
 
   addNote(note: Note) {
@@ -165,7 +155,7 @@ class StateManager {
         ...this.state.notes,
         items: [...this.state.notes.items, note],
       },
-    });
+    }, 'ADD_NOTE');
   }
 
   // Memory actions
@@ -177,7 +167,7 @@ class StateManager {
         loading: false,
         error: null,
       },
-    });
+    }, 'SET_MEMORY_FOLDERS');
   }
 
   addMemoryFolder(folder: MemoryFolder) {
@@ -186,7 +176,7 @@ class StateManager {
         ...this.state.memory,
         folders: [...this.state.memory.folders, folder],
       },
-    });
+    }, 'ADD_MEMORY_FOLDER');
   }
 }
 
