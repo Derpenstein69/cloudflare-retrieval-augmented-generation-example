@@ -107,6 +107,24 @@ export const sharedStyles = `
       z-index: 1000;
       border-bottom: 1px solid var(--border-color);
     }
+			.auth-container {
+      max-width: 400px;
+      margin: 2rem auto;
+      padding: 2rem;
+      background: var(--secondary-bg);
+      border-radius: 8px;
+      box-shadow: 0 2px 4px var(--shadow-color);
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .error-container {
+      color: var(--error-color);
+      margin-bottom: 1rem;
+      padding: 0.5rem;
+      border: 1px solid var(--error-color);
+      border-radius: 4px;
+    }
     .title {
       text-align: center;
       flex-grow: 1;
@@ -415,260 +433,31 @@ export const eventHandlers = `
 
     async handleLogin(event) {
       event.preventDefault();
+      const form = event.target;
+      const errorContainer = document.getElementById('error-messages');
+
       try {
-        const form = event.target;
-        const formData = new FormData(form);
         const response = await fetch('/login', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(Object.fromEntries(formData))
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.fromEntries(new FormData(form)))
         });
 
-        if (response.ok) {
-          window.location.href = '/';
-        } else {
-          const data = await response.json();
+        const data = await response.json();
+
+        if (!response.ok) {
           throw new Error(data.error || 'Login failed');
         }
+
+        window.location.href = '/';
       } catch (error) {
-        console.error('Login error:', error);
-        alert(error.message);
-      }
-    },
-
-    async handleSignup(event) {
-      event.preventDefault();
-      try {
-        state.setAuthStatus(AuthStatus.Loading);
-        const form = event.target;
-        const formData = new FormData(form);
-        const { email, password, confirm_password } = Object.fromEntries(formData);
-
-        if (password !== confirm_password) {
-          throw new Error('Passwords do not match');
-        }
-
-        const response = await api.signup(email, password);
-        if (response.error) throw new Error(response.error);
-
-        state.setAuthStatus(AuthStatus.Authenticated);
-        state.setUser(response.data.user);
-        appRouter.navigate('/');
-      } catch (error) {
-        state.setAuthStatus(AuthStatus.Unauthenticated, error.message);
-        state.addNotification({
-          type: NotificationType.Error,
-          message: 'Signup failed: ' + error.message
-        });
-      }
-    },
-
-    async handleLogout() {
-      try {
-        state.setAuthStatus(AuthStatus.Loading);
-        const response = await api.logout();
-        if (response.error) throw new Error(response.error);
-
-        state.setAuthStatus(AuthStatus.Unauthenticated);
-        state.setUser(null);
-        window.location.href = '/login';
-      } catch (error) {
-        state.setAuthStatus(AuthStatus.Authenticated);
-        state.addNotification({
-          type: NotificationType.Error,
-          message: 'Logout failed: ' + error.message
-        });
-      }
-    },
-
-    async handleProfileUpdate(event) {
-      event.preventDefault();
-      try {
-        state.setLoadingState(true);
-        const form = event.target;
-        const data = Object.fromEntries(new FormData(form));
-
-        const response = await api.updateProfile(data);
-        if (response.error) throw new Error(response.error);
-
-        state.setUser({ ...state.getState().user.data, ...response.data });
-        state.addNotification({
-          type: NotificationType.Success,
-          message: 'Profile updated successfully'
-        });
-      } catch (error) {
-        state.addNotification({
-          type: NotificationType.Error,
-          message: 'Failed to update profile: ' + error.message
-        });
-      } finally {
-        state.setLoadingState(false);
-      }
-    },
-
-    async handleSettingsUpdate(event) {
-      event.preventDefault();
-      try {
-        state.setLoadingState(true);
-        const form = event.target;
-        const data = Object.fromEntries(new FormData(form));
-
-        const response = await api.updateSettings(data);
-        if (response.error) throw new Error(response.error);
-
-        state.setUserPreferences(data);
-        state.addNotification({
-          type: NotificationType.Success,
-          message: 'Settings updated successfully'
-        });
-      } catch (error) {
-        state.addNotification({
-          type: NotificationType.Error,
-          message: 'Failed to update settings: ' + error.message
-        });
-      } finally {
-        state.setLoadingState(false);
-      }
-    },
-
-    async handleNoteSubmit(event) {
-      event.preventDefault();
-      try {
-        state.setLoadingState(true);
-        const form = event.target;
-        const { text } = Object.fromEntries(new FormData(form));
-
-        const response = await api.createNote(text);
-        if (response.error) throw new Error(response.error);
-
-        state.addNote(response.data);
-        form.reset();
-        state.addNotification({
-          type: NotificationType.Success,
-          message: 'Note created successfully'
-        });
-      } catch (error) {
-        state.addNotification({
-          type: NotificationType.Error,
-          message: 'Failed to create note: ' + error.message
-        });
-      } finally {
-        state.setLoadingState(false);
-      }
-    },
-
-    async handleNoteDelete(id) {
-      try {
-        state.setLoadingState(true);
-        const response = await api.deleteNote(id);
-        if (response.error) throw new Error(response.error);
-
-        state.removeNote(id);
-        state.addNotification({
-          type: NotificationType.Success,
-          message: 'Note deleted successfully'
-        });
-      } catch (error) {
-        state.addNotification({
-          type: NotificationType.Error,
-          message: 'Failed to delete note: ' + error.message
-        });
-      } finally {
-        state.setLoadingState(false);
-      }
-    },
-
-    async handleFolderCreate(name) {
-      try {
-        state.setLoadingState(true);
-        const response = await api.createMemoryFolder(name);
-        if (response.error) throw new Error(response.error);
-
-        state.addMemoryFolder(response.data);
-        state.addNotification({
-          type: NotificationType.Success,
-          message: 'Folder created successfully'
-        });
-      } catch (error) {
-        state.addNotification({
-          type: NotificationType.Error,
-          message: 'Failed to create folder: ' + error.message
-        });
-      } finally {
-        state.setLoadingState(false);
-      }
-    },
-
-    updateTheme(theme) {
-      try {
-        state.setTheme(theme);
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-        state.addNotification({
-          type: NotificationType.Success,
-          message: 'Theme updated successfully'
-        });
-      } catch (error) {
-        state.addNotification({
-          type: NotificationType.Error,
-          message: 'Failed to update theme'
-        });
-      }
-    },
-
-    toggleSidebar() {
-      try {
-        state.toggleSidebar();
-        const sidebar = document.getElementById('sidebar');
-        const content = document.getElementById('content');
-        const isOpen = state.getState().ui.sidebar.isOpen;
-
-        sidebar.style.display = isOpen ? 'block' : 'none';
-        content.classList.toggle('collapsed', !isOpen);
-      } catch (error) {
-        state.addNotification({
-          type: NotificationType.Error,
-          message: 'Failed to toggle sidebar'
-        });
+        errorContainer.textContent = error.message;
+        errorContainer.style.display = 'block';
       }
     }
   };
-
-  // Initialize state listeners
-  state.subscribe((newState) => {
-    try {
-      // Update theme
-      document.documentElement.setAttribute('data-theme', newState.ui.theme);
-
-      // Update sidebar
-      const sidebar = document.getElementById('sidebar');
-      const content = document.getElementById('content');
-      if (sidebar && content) {
-        sidebar.style.display = newState.ui.sidebar.isOpen ? 'block' : 'none';
-        content.classList.toggle('collapsed', !newState.ui.sidebar.isOpen);
-      }
-
-      // Update notifications - Fix the template literal syntax
-      const notificationsContainer = document.getElementById('notifications');
-      if (notificationsContainer) {
-        notificationsContainer.innerHTML = newState.ui.notifications
-          .map(notification =>
-            '<div class="toast ' + notification.type + '">' +
-              notification.message +
-            '</div>'
-          )
-          .join('');
-      }
-
-      // Update loading state
-      document.body.classList.toggle('loading', newState.ui.loading);
-    } catch (error) {
-      console.error('State update error:', error);
-    }
-  });
-</script>`;
+</script>
+`;
 
 // Fix folder template implementation
 const folderTemplate = (name: string, isPrivate: boolean = false) => `
@@ -797,20 +586,11 @@ const pageLayout = (title: string, content: string, options: { showSidebar?: boo
 
 // Update template functions to use pageLayout
 export const templates = {
-  login: () => `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Login | RusstCorp</title>
-  ${sharedStyles}
-</head>
-<body>
-  <div class="content">
+  login: () => pageLayout('Login', `
     <div class="auth-container">
       <h1>Login</h1>
       <div id="error-messages" class="error-container" style="display: none;"></div>
-      <form id="login-form" onsubmit="handleLogin(event)">
+      <form id="login-form" onsubmit="EventHandlers.handleLogin(event)">
         <div class="form-group">
           <input type="email" name="email" placeholder="Email" required>
         </div>
@@ -821,38 +601,8 @@ export const templates = {
       </form>
       <p>Don't have an account? <a href="/signup">Sign up</a></p>
     </div>
-  </div>
-  <script>
-    async function handleLogin(event) {
-      event.preventDefault();
-      const form = event.target;
-      const errorContainer = document.getElementById('error-messages');
+  `, { showSidebar: false, showMenuToggle: false }),
 
-      try {
-        const response = await fetch('/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(Object.fromEntries(new FormData(form)))
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          window.location.href = '/';
-        } else {
-          throw new Error(data.error || 'Login failed');
-        }
-      } catch (error) {
-        errorContainer.textContent = error.message;
-        errorContainer.style.display = 'block';
-      }
-    }
-  </script>
-</body>
-</html>
-  `,
   signup: () => pageLayout('Sign Up', `
     <div class="auth-container">
       <h1>Sign Up</h1>

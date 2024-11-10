@@ -181,14 +181,20 @@ routes.get('/activity', authMiddleware, async (c) => {
   }
 });
 
-routes.get('/login', (c) => {
+routes.get('/login', async (c) => {
+  const requestId = c.get('requestId');
+  Logger.log('INFO', 'Login page requested', {
+    requestId,
+    userAgent: c.req.headers.get('user-agent'),
+    ip: c.req.headers.get('cf-connecting-ip')
+  });
+
   try {
-    console.log('Rendering login page template');
     const html = renderTemplate(() => templates.login());
-    console.log('Login template rendered successfully');
+    Logger.log('INFO', 'Login page rendered', { requestId });
     return c.html(html);
   } catch (error) {
-    console.error('Login page rendering error:', error);
+    Logger.log('ERROR', 'Login page render failed', { requestId, error });
     return c.html(renderTemplate(() => errorTemplates.serverError(error)));
   }
 });
