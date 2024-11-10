@@ -101,10 +101,10 @@ app.get('/health', (c) => {
 const authRoutes = new Hono<{ Bindings: Env }>();
 authRoutes.get('/login', async (c) => {
   deleteCookie(c, 'session', { path: '/' });
-  return c.html(templates.login());
+  return c.html(renderTemplate(templates.login()));
 });
 
-authRoutes.get('/signup', (c) => c.html(templates.signup()));
+authRoutes.get('/signup', (c) => c.html(renderTemplate(templates.signup())));
 app.route('/auth', authRoutes);
 
 // Protected API routes
