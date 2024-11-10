@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import routes from './routes'
 import { errorHandler, authMiddleware, validateEnv, SessionDO } from './shared'
-import { templates, renderTemplate } from './Components'
+import { templates } from './Components'
 import type { Env } from './types'
 
 const app = new Hono<{ Bindings: Env }>()
@@ -15,21 +15,29 @@ app.onError((err, c) => {
 
 // Global middleware
 app.use(cors())
+
+// Improved error handling middleware
 app.use('*', async (c, next) => {
   try {
     await next();
   } catch (err) {
-    throw err;
+    console.error('Middleware error:', err);
+    if (err instanceof Response) return err;
+    return c.json({ error: 'Internal server error' }, 500);
   }
 });
 
-// Public routes - Fix the template rendering
-app.get('/login', (c) => renderTemplate(templates.login))
-app.get('/signup', (c) => renderTemplate(templates.signup))
+// Public routes
+app.get('/login', (c) => c.html(templates.login()))
+app.get('/signup', (c) => c.html(templates.signup()))
 
-// Protected routes
-app.use('*', authMiddleware)
-app.route('/', routes)
+// Protected route group
+const protectedRoutes = new Hono<{ Bindings: Env }>()
+protectedRoutes.use('*', authMiddleware)
+protectedRoutes.route('/', routes)
+
+// Mount protected routes
+app.route('/', protectedRoutes)
 
 // Query endpoint
 app.get('/query', async (c) => {
@@ -73,6 +81,7 @@ app.get('/query', async (c) => {
   }
 });
 
+// Export
 export { RAGWorkflow } from './workflows/rag'
 export { SessionDO }
 export default app
