@@ -1,3 +1,5 @@
+import { baseLayout } from './shared';
+
 // Shared styles and theme script that was previously in shared.ts
 export const sharedStyles = `
   <style>
@@ -209,20 +211,7 @@ export const themeScript = `
 `;
 
 // Login template that was previously in login.ts
-export const loginTemplate = () => `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Login | RusstCorp</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-  ${sharedStyles}
-</head>
-<body>
-  <div class="action-bar">
-    <div class="title">RusstCorp</div>
-    <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
-  </div>
+export const loginTemplate = () => baseLayout('Login', `
   <div class="content">
     <h1>Login</h1>
     <form id="login-form" method="POST" action="/auth/login">
@@ -236,10 +225,7 @@ export const loginTemplate = () => `
     </form>
     <p>Don't have an account? <a href="/signup">Sign up</a></p>
   </div>
-  ${themeScript}
-</body>
-</html>
-`;
+`);
 
 // Signup template that was previously in signup.ts
 export const signupTemplate = () => `
@@ -1092,7 +1078,7 @@ export const memoryTemplate = () => {
 </html>
 `};
 
-// Export templates object
+// Export templates object correctly
 export const templates = {
   login: loginTemplate,
   signup: signupTemplate,

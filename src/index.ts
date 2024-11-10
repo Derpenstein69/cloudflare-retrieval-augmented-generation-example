@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import routes, { authMiddleware } from './routes'
+import routes from './routes'
+import { errorHandler, authMiddleware, validateEnv } from './shared'
 import { templates } from './Components'
 import type { Env } from './types'
 
