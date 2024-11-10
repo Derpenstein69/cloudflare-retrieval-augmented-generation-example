@@ -1,8 +1,6 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
-import { rateLimit } from './middleware/rateLimit';
-import { validate } from './middleware/validate';
-import { sanitize } from './middleware/sanitize';
+import { rateLimit, validate, sanitize } from './middleware';
 import {
   validateEmail,
   hashPassword,
