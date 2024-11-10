@@ -1,4 +1,3 @@
-import { baseLayout, sharedStyles, themeScript } from './shared';
 import { api } from './api-service';
 import { state } from './state';
 import {
@@ -13,11 +12,6 @@ import {
   UIState,
   AuthState
 } from './types';
-import { Logger } from './shared';
-import type { Context } from 'hono';
-import { getCookie, deleteCookie } from 'hono/cookie';
-import type { Env } from './types';
-
 // Theme configuration
 const themeConfig = {
   light: {
@@ -578,25 +572,9 @@ export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: () => 
     c.set('userEmail', session.email);
     c.set('session', session);
     await next();
-  } catch (import { baseLayout, sharedStyles, themeScript } from './shared';
-import { api } from './api-service';
-import { state } from './state';
-import {
-  AuthStatus,
-  NotificationType,
-  ThemeMode,
-  User,
-  Note,
-  MemoryFolder,
-  AppState,
-  UserPreferences,
-  UIState,
-  AuthState
-} from './types';
-import { Logger } from './shared';
-import type { Context } from 'hono';
-import { getCookie, deleteCookie } from 'hono/cookie';
-import type { Env } from './types';
+  } catch (error) {
+		return errorHandler(error, c);
+	}
 
 // Theme configuration
 const themeConfig = {
