@@ -1,10 +1,10 @@
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
-import routes from './routes'
-import { errorHandler, authMiddleware, validateEnv, SessionDO } from './shared'
-import { templates, errorTemplates, renderTemplate } from './Components'
-import type { Env } from './types'
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
+import routes from './routes';
+import { errorHandler, authMiddleware, validateEnv, SessionDO } from './shared';
+import { templates, errorTemplates, renderTemplate } from './Components';
+import type { Env } from './types';
 
 // Logger service
 class Logger {
@@ -190,6 +190,6 @@ async function generateAIResponse(c: any, question: string, notes: string[]): Pr
   return response.response;
 }
 
-export { RAGWorkflow } from './workflows/rag'
-export { SessionDO }
-export default app
+export { RAGWorkflow } from './workflows/rag';
+export { SessionDO };
+export default app;
