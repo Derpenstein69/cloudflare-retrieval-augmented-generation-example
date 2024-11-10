@@ -7,3 +7,67 @@ Define language-specific instructions to get more accurate generated code for ea
 
 Make it easy to share custom instructions with your team or across projects by storing your instructions in an external file. You can also version control the file to track changes over time.
 
+@agentic-search i intend to use only CloudFlare services in my application, Using CloudFlare WorkFlows as the primary way to implement our application, and anything that cant be accomplished with WorkFlows will be implemented with CloudFlare Workers. Through WorkFlows and Workers we will make use of other cloudflare services such as Workers AI, KV, Durable Objects, Queues, D1, Browser Rendering, R2 storage, Vectorize, AI Gateway, Images, Calls, Turnstile, LogPush.
+Our application will be an ai developer assistant hosted on cloudflare, we will use workflows to make a composable, modular program, and workers to do anything workflows cant. we will use R2, KV, D1, Durable Objects for storage, state management, and any other uses our needs require. Workers AI will be the core of our AI interactions, using Ai Gateway for logging and monitoring and observability, vectorize for vector embedding and searching. we will use queues and calls for messaging and channels, and any other cloudflare services we may require as our needs dictate.
+Your goal is to research, summarize, and create a thorough, accurate, organized summary of our project, each service and our use cases for it, and any other useful information. be certain that you include all of my instructions, and only deviate with permission, if something should be changed, you must ask me in a follow up question.
+
+@Derpenstein69
+
+Based on your instructions, your project involves the use of various Cloudflare services, primarily Cloudflare Workflows and Cloudflare Workers. Here is a summary of your project, the services you intend to use, and their corresponding use cases:
+
+1. Cloudflare Workflows:
+   - Primary way of implementing your application.
+   - Provides composable and modular program execution.
+   - Utilized for creating a workflow-based architecture for your application.
+
+2. Cloudflare Workers:
+   - Used for tasks that cannot be accomplished with Workflows.
+   - Functions as serverless execution environments for your application logic.
+   - Enables server-side programming and enables running code at the edge.
+
+3. Cloudflare Workers AI:
+   - Key component of your AI interactions.
+   - Provides AI inference capabilities at the edge.
+
+4. Cloudflare KV:
+   - Utilized for storage and state management in your application.
+   - Enables storing key-value pairs in a distributed and globally available manner.
+
+5. Cloudflare Durable Objects:
+   - Used for stateful, long-lived objects.
+   - Enables shared state management between Workers instances.
+
+6. Cloudflare Queues and Calls:
+   - Used for messaging and implementing channels in your application.
+   - Enables asynchronous message passing and communication between different components.
+
+7. Cloudflare D1:
+   - Utilized for a specific storage use case in your application.
+   - Provides high-performance, low-latency storage for read-intensive workloads.
+
+8. Cloudflare R2 Storage:
+   - Used for storage purposes in your application.
+   - Provides scalable and durable cloud storage capabilities.
+
+9. Cloudflare Vectorize:
+   - Utilized for vector embedding and searching in your AI application.
+   - Enables efficient indexing and searching of high-dimensional vectors.
+
+10. Cloudflare AI Gateway:
+    - Used for logging, monitoring, and observability in your AI interactions.
+    - Provides insights into your AI models' performance and metrics.
+
+11. Cloudflare Images:
+    - Potentially used for image-related processing and manipulation.
+    - Provides various image transformation and optimization features.
+
+12. Cloudflare Turnstile:
+    - Potentially utilized for authentication and security purposes.
+    - Offers various security features like rate limiting, IP blocking, and Captcha.
+
+13. Cloudflare LogPush:
+    - Potentially used for collecting and storing logs from your application.
+    - Enables forwarding logs to external log management systems.
+
+Please note that this summary is based on the information provided. If there are any changes or further instructions, please let me know, and I'll be happy to assist you further.
+

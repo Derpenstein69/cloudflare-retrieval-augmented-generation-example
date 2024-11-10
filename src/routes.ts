@@ -101,6 +101,7 @@ routes.use('*', async (c, next) => {
   try {
     await next();
   } catch (error) {
+    console.error('Global middleware error:', error);
     return errorHandler(error, 'process request');
   }
 });
@@ -127,6 +128,7 @@ routes.post('/forgot-password', validate(['email']), async (c) => {
     }
     return c.json({ success: true, message: 'If email exists, reset instructions have been sent' });
   } catch (error) {
+    console.error('Password reset error:', error);
     return errorHandler(error, 'reset password');
   }
 });
@@ -143,6 +145,7 @@ routes.post('/profile/picture', authMiddleware, async (c) => {
     // Implementation details...
     return c.json({ success: true, message: 'Profile picture updated' });
   } catch (error) {
+    console.error('Profile picture upload error:', error);
     return errorHandler(error, 'upload profile picture');
   }
 });
@@ -159,6 +162,7 @@ routes.delete('/account', authMiddleware, async (c) => {
     // Implementation details...
     return c.json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {
+    console.error('Account deletion error:', error);
     return errorHandler(error, 'delete account');
   }
 });
@@ -172,12 +176,28 @@ routes.get('/activity', authMiddleware, async (c) => {
     ).bind(userEmail).all();
     return c.json(results);
   } catch (error) {
+    console.error('Activity logging error:', error);
     return errorHandler(error, 'fetch activity log');
   }
 });
 
-routes.get('/login', (c) => c.html(renderTemplate(templates.login)));
-routes.get('/signup', (c) => c.html(renderTemplate(templates.signup)));
+routes.get('/login', (c) => {
+  try {
+    return c.html(renderTemplate(templates.login));
+  } catch (error) {
+    console.error('Login page rendering error:', error);
+    return c.html(renderTemplate(() => errorTemplates.serverError(error)));
+  }
+});
+
+routes.get('/signup', (c) => {
+  try {
+    return c.html(renderTemplate(templates.signup));
+  } catch (error) {
+    console.error('Signup page rendering error:', error);
+    return c.html(renderTemplate(() => errorTemplates.serverError(error)));
+  }
+});
 
 routes.post('/login', async (c) => {
   try {
@@ -397,7 +417,10 @@ routes.all('*', (c) => c.text('Not found', 404));
 
 // Error handlers
 routes.notFound((c) => c.html(renderTemplate(errorTemplates.notFound)));
-routes.onError((err, c) => c.html(renderTemplate(() => errorTemplates.serverError(err))));
+routes.onError((err, c) => {
+  console.error('Route error:', err);
+  return c.html(renderTemplate(() => errorTemplates.serverError(err)));
+});
 
 // Add JSON content type helper for API routes
 routes.use('/api/*', async (c, next) => {
