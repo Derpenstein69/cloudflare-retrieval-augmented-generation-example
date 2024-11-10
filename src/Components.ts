@@ -1091,3 +1091,14 @@ export const memoryTemplate = () => {
 </body>
 </html>
 `};
+
+// Export templates object
+export const templates = {
+  login: loginTemplate,
+  signup: signupTemplate,
+  home: homeTemplate,
+  profile: profileTemplate,
+  settings: settingsTemplate,
+  notes: notesTemplate,
+  memory: memoryTemplate
+};

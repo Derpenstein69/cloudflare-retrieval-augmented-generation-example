@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { validateEmail, hashPassword, generateSecureKey, safeExecute } from './utils';
-import type { Env } from './types';
 import { templates } from './Components';
+import { SessionDO } from './session';
+import type { Env } from './types';
 
 // Consolidated error responses
 const errors = {
@@ -49,6 +50,12 @@ export const authMiddleware = async (c: any, next: () => Promise<any>) => {
   }
 };
 
+// Error handling middleware
+const handleError = (error: Error, operation: string) => {
+  console.error(`Error in ${operation}:`, error);
+  return { error: `Failed to ${operation}`, status: 500 };
+};
+
 const routes = new Hono<{ Bindings: Env }>();
 
 // Auth Routes
@@ -56,28 +63,28 @@ routes.get('/login', (c) => c.html(templates.login()));
 routes.get('/signup', (c) => c.html(templates.signup()));
 
 routes.post('/login', async (c) => {
-  return await safeExecute(async () => {
+  try {
     const { email, password } = await c.req.json();
-
     if (!email || !password || !validateEmail(email)) {
-      return c.json(errors.auth.missingFields);
+      return c.json({ error: 'Invalid credentials' }, 400);
     }
 
     const userData = await c.env.USERS_KV.get(email);
-    if (!userData) return c.json(errors.auth.invalidCreds);
+    if (!userData) return c.json({ error: 'Invalid credentials' }, 401);
 
     const user = JSON.parse(userData);
     const hashedPassword = await hashPassword(password);
 
     if (user.password !== hashedPassword) {
-      return c.json(errors.auth.invalidCreds);
+      return c.json({ error: 'Invalid credentials' }, 401);
     }
 
     const sessionToken = generateSecureKey(32);
     await createSession(c, email, sessionToken);
-
     return c.redirect('/');
-  }, 'Login failed');
+  } catch (error) {
+    return c.json(handleError(error, 'login'));
+  }
 });
 
 // Helper function to create session
