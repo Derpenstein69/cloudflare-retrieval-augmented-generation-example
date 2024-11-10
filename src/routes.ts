@@ -7,7 +7,7 @@ import {
   safeExecute,
   SessionDO
 } from './shared';
-import { templates } from './Components';
+import { templates, renderTemplate, errorTemplates } from './Components';
 import type { Env } from './types';
 
 // Consolidated error responses
@@ -63,9 +63,15 @@ const handleError = (error: Error, operation: string) => {
 
 const routes = new Hono<{ Bindings: Env }>();
 
+// Add API response helper
+const apiResponse = (data: any, status = 200) => new Response(JSON.stringify(data), {
+  status,
+  headers: { 'Content-Type': 'application/json' }
+});
+
 // Auth Routes
-routes.get('/login', (c) => c.html(templates.login()));
-routes.get('/signup', (c) => c.html(templates.signup()));
+routes.get('/login', (c) => c.html(renderTemplate(templates.login)));
+routes.get('/signup', (c) => c.html(renderTemplate(templates.signup)));
 
 routes.post('/login', async (c) => {
   try {
@@ -86,9 +92,9 @@ routes.post('/login', async (c) => {
 
     const sessionToken = generateSecureKey(32);
     await createSession(c, email, sessionToken);
-    return c.redirect('/');
+    return apiResponse({ success: true });
   } catch (error) {
-    return c.json(handleError(error, 'login'));
+    return apiResponse({ error: 'Login failed' }, 401);
   }
 });
 
@@ -155,10 +161,10 @@ routes.all('/signup', async (c) => {
       maxAge: 60 * 60 * 24
     });
 
-    return c.redirect('/');
+    return apiResponse({ success: true });
   } catch (err) {
     console.error('Signup error:', err);
-    return c.json({ error: "An error occurred during signup" }, 500);
+    return apiResponse({ error: 'Signup failed' }, 400);
   }
 });
 
@@ -179,7 +185,7 @@ routes.get('/profile', authMiddleware, async (c) => {
   if (!userData) {
     return c.json({ error: 'User not found' }, 404);
   }
-  return c.html(profileTemplate());
+  return c.html(renderTemplate(templates.profile));
 });
 
 routes.post('/profile', authMiddleware, async (c) => {
@@ -202,7 +208,7 @@ routes.get('/settings', authMiddleware, async (c) => {
   if (!userData) {
     return c.json({ error: 'User not found' }, 404);
   }
-  return c.html(settingsTemplate());
+  return c.html(renderTemplate(templates.settings));
 });
 
 routes.post('/settings', authMiddleware, async (c) => {
@@ -252,12 +258,22 @@ routes.post('/notes', authMiddleware, async (c) => {
 });
 
 // Memory Routes
-routes.get('/memory', authMiddleware, (c) => c.html(memoryTemplate()));
+routes.get('/memory', authMiddleware, (c) => c.html(renderTemplate(templates.memory)));
 
 // Home Route
-routes.get('/', authMiddleware, (c) => c.html(homeTemplate()));
+routes.get('/', authMiddleware, (c) => c.html(renderTemplate(templates.home)));
 
 // Catch-all route
 routes.all('*', (c) => c.text('Not found', 404));
+
+// Error handlers
+routes.notFound((c) => c.html(renderTemplate(errorTemplates.notFound)));
+routes.onError((err, c) => c.html(renderTemplate(() => errorTemplates.serverError(err))));
+
+// Add JSON content type helper for API routes
+routes.use('/api/*', async (c, next) => {
+  c.header('Content-Type', 'application/json');
+  await next();
+});
 
 export default routes;

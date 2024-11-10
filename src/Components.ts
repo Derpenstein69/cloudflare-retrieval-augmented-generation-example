@@ -1,23 +1,87 @@
 import { baseLayout, sharedStyles, themeScript } from './shared';
+import { api } from './api-service';
+import { state } from './state';
+import {
+  AuthStatus,
+  NotificationType,
+  ThemeMode,
+  User,
+  Note,
+  MemoryFolder,
+  AppState,
+  UserPreferences,
+  UIState,
+  AuthState
+} from './types';
+
+// Theme configuration
+const themeConfig = {
+  light: {
+    '--primary-bg': '#ffffff',
+    '--secondary-bg': '#f5f5f5',
+    '--accent-color': '#007bff',
+    '--text-primary': '#333333',
+    '--text-secondary': '#666666',
+    '--border-color': '#dddddd',
+    '--error-color': '#dc3545',
+    '--success-color': '#28a745',
+    '--warning-color': '#ffc107',
+    '--shadow-color': 'rgba(0,0,0,0.1)',
+    '--input-bg': '#ffffff',
+    '--input-text': '#333333',
+    '--button-primary-bg': '#007bff',
+    '--button-primary-text': '#ffffff',
+  },
+  dark: {
+    '--primary-bg': '#1a1a1a',
+    '--secondary-bg': '#2d2d2d',
+    '--accent-color': '#4dabf7',
+    '--text-primary': '#ffffff',
+    '--text-secondary': '#bbbbbb',
+    '--border-color': '#404040',
+    '--error-color': '#ff4444',
+    '--success-color': '#4caf50',
+    '--warning-color': '#ffeb3b',
+    '--shadow-color': 'rgba(0,0,0,0.3)',
+    '--input-bg': '#333333',
+    '--input-text': '#ffffff',
+    '--button-primary-bg': '#4dabf7',
+    '--button-primary-text': '#ffffff',
+  }
+};
 
 // Shared styles and theme script that was previously in shared.ts
 export const sharedStyles = `
   <style>
+    :root {
+      ${Object.entries(themeConfig.light)
+        .map(([prop, value]) => `${prop}: ${value};`)
+        .join('\n      ')}
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        ${Object.entries(themeConfig.dark)
+          .map(([prop, value]) => `${prop}: ${value};`)
+          .join('\n      ')}
+      }
+    }
+
     body {
       margin: 0;
       padding: 0;
-      background-color: var(--primary-color);
-      color: var(--text-color);
+      background-color: var(--primary-bg);
+      color: var(--text-primary);
       display: flex;
       justify-content: center;
       align-items: center;
       min-height: 100vh;
     }
     .content {
-      background-color: var(--secondary-color);
+      background-color: var(--secondary-bg);
       padding: 2rem;
       border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 6px var(--shadow-color);
       width: 100%;
       max-width: 400px;
       display: flex;
@@ -30,13 +94,14 @@ export const sharedStyles = `
       justify-content: space-between;
       align-items: center;
       padding: 10px;
-      background-color: var(--secondary-color);
-      color: var(--text-color);
+      background-color: var(--secondary-bg);
+      color: var(--text-primary);
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       z-index: 1000;
+      border-bottom: 1px solid var(--border-color);
     }
     .title {
       text-align: center;
@@ -54,13 +119,14 @@ export const sharedStyles = `
       position: absolute;
       right: 0;
       top: 100%;
-      background-color: var(--secondary-color);
-      color: var(--text-color);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      background-color: var(--secondary-bg);
+      color: var(--text-primary);
+      box-shadow: 0 4px 8px var(--shadow-color);
       list-style: none;
       padding: 0;
       margin: 0;
       min-width: 150px;
+      border: 1px solid var(--border-color);
     }
     .menu-item {
       padding: 10px;
@@ -68,12 +134,12 @@ export const sharedStyles = `
       transition: background-color 0.2s;
     }
     .menu-item:hover {
-      background-color: var(--primary-color);
+      background-color: var(--primary-bg);
     }
     .sidebar {
       width: 200px;
-      background-color: var(--secondary-color);
-      color: var(--text-color);
+      background-color: var(--secondary-bg);
+      color: var(--text-primary);
       position: fixed;
       top: 40px; /* Adjusted to be directly below the action bar */
       left: 0;
@@ -109,27 +175,15 @@ export const sharedStyles = `
       margin-top: 20px;
     }
     .folder {
-      background-color: var(--secondary-color);
+      background-color: var(--secondary-bg);
       padding: 20px;
       border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 6px var(--shadow-color);
       cursor: pointer;
       transition: background-color 0.2s;
     }
     .folder:hover {
-      background-color: var(--primary-color);
-    }
-    :root {
-      --primary-color: white;
-      --secondary-color: #d3d3d3;
-      --text-color: black;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --primary-color: #1a1a1a;
-        --secondary-color: #333;
-        --text-color: white;
-      }
+      background-color: var(--primary-bg);
     }
     .light-mode {
       --primary-color: white;
@@ -141,27 +195,11 @@ export const sharedStyles = `
       --secondary-color: #333;
       --text-color: white;
     }
-  </style>
-`;
-
-export const themeScript = `
-  <script>
-    try {
-      function getSystemTheme() {
-        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      }
-
-      function setTheme(theme) {
-        const root = document.documentElement;
-        root.classList.remove('light-mode', 'dark-mode');
-        if (theme !== 'system') {
-          root.classList.add(theme + '-mode');
-        }
-        localStorage.setItem('theme', theme);
-        updateThemeToggleIcon(theme);
-      }
-
-      function updateThemeToggleIcon(theme) {
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 20px;
         const icon = document.querySelector('.theme-toggle');
         switch(theme) {
           case 'system':
@@ -210,39 +248,562 @@ export const themeScript = `
   </script>
 `;
 
-// Login template that was previously in login.ts
-export const loginTemplate = () => baseLayout('Login', `
-  <div class="content">
-    <h1>Login</h1>
-    <form id="login-form" method="POST" action="/auth/login">
-      <div>
-        <input type="email" name="email" placeholder="Email" required>
-      </div>
-      <div>
-        <input type="password" name="password" placeholder="Password" required>
-      </div>
-      <button type="submit">Login</button>
-    </form>
-    <p>Don't have an account? <a href="/signup">Sign up</a></p>
-  </div>
-`);
+// Fix duplicate theme script and add missing functions
+export const themeScript = `
+<script>
+  const ThemeManager = {
+    getSystemTheme() {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    },
 
-// Signup template that was previously in signup.ts
-export const signupTemplate = () => `
-  <!DOCTYPE html>
-  <html>
-  <head>
-    <meta charset="UTF-8">
-    <title>Sign Up | RusstCorp</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-    ${sharedStyles}
-  </head>
-  <body>
-    <div class="action-bar">
-      <div class="title">RusstCorp</div>
-      <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
+    setTheme(theme) {
+      const root = document.documentElement;
+      root.classList.remove('light-mode', 'dark-mode');
+      if (theme !== 'system') {
+        root.classList.add(theme + '-mode');
+      }
+      localStorage.setItem('theme', theme);
+      this.updateThemeToggleIcon(theme);
+      state.setTheme(theme);
+    },
+
+    updateThemeToggleIcon(theme) {
+      const icon = document.querySelector('.theme-toggle');
+      if (icon) {
+        icon.textContent = {
+          system: '🌓',
+          dark: '🌙',
+          light: '☀️'
+        }[theme];
+      }
+    },
+
+    toggleTheme() {
+      const currentTheme = localStorage.getItem('theme') || 'system';
+      const themes = ['system', 'light', 'dark'];
+      const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+      const newTheme = themes[nextIndex];
+      this.setTheme(newTheme);
+
+      if (newTheme === 'system') {
+        const systemTheme = this.getSystemTheme();
+        document.documentElement.classList.toggle('dark-mode', systemTheme === 'dark');
+      }
+    },
+
+    init() {
+      try {
+        const savedTheme = localStorage.getItem('theme') || 'system';
+        this.setTheme(savedTheme);
+
+        if (savedTheme === 'system') {
+          const systemTheme = this.getSystemTheme();
+          document.documentElement.classList.toggle('dark-mode', systemTheme === 'dark');
+        }
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+          if (localStorage.getItem('theme') === 'system') {
+            document.documentElement.classList.toggle('dark-mode', e.matches);
+          }
+        });
+      } catch (err) {
+        console.error('Theme initialization error:', err);
+        document.documentElement.classList.add('light-mode');
+      }
+    }
+  };
+
+  // Initialize theme system
+  document.addEventListener('DOMContentLoaded', () => ThemeManager.init());
+</script>`;
+
+// Client-Side Router
+export const router = `
+<script>
+  class Router {
+    constructor() {
+      this.routes = new Map();
+      this.currentPath = window.location.pathname;
+
+      window.addEventListener('popstate', () => this.handleRoute(window.location.pathname));
+    }
+
+    addRoute(path, handler) {
+      this.routes.set(path, handler);
+    }
+
+    async handleRoute(path, pushState = false) {
+      try {
+        const handler = this.routes.get(path) || this.routes.get('*');
+        if (handler) {
+          if (pushState) {
+            history.pushState(null, '', path);
+          }
+          this.currentPath = path;
+          await handler();
+        }
+      } catch (error) {
+        console.error('Routing error:', error);
+        EventHandlers.showError('Navigation failed');
+      }
+    }
+
+    async navigate(path) {
+      await this.handleRoute(path, true);
+    }
+
+    init() {
+      this.handleRoute(this.currentPath);
+    }
+  }
+
+  const appRouter = new Router();
+
+  // Define routes
+  appRouter.addRoute('/', async () => await EventHandlers.loadContent('/'));
+  appRouter.addRoute('/login', async () => await EventHandlers.loadContent('/login'));
+  appRouter.addRoute('/signup', async () => await EventHandlers.loadContent('/signup'));
+  appRouter.addRoute('/profile', async () => await EventHandlers.loadContent('/profile'));
+  appRouter.addRoute('/settings', async () => await EventHandlers.loadContent('/settings'));
+  appRouter.addRoute('/notes', async () => await EventHandlers.loadContent('/notes'));
+  appRouter.addRoute('/memory', async () => await EventHandlers.loadContent('/memory'));
+  appRouter.addRoute('*', async () => await EventHandlers.loadContent('/404'));
+
+  // Initialize router
+  document.addEventListener('DOMContentLoaded', () => appRouter.init());
+</script>
+`;
+
+// Centralized Event Handlers
+import { state } from './state';
+import { AuthStatus, NotificationType, ThemeMode } from './types';
+
+// ...rest of imports...
+
+// Update event handlers to use state management
+export const eventHandlers = `
+<script>
+  const EventHandlers = {
+    async loadContent(path) {
+      try {
+        state.setLoadingState(true);
+        const response = await fetch(path);
+        if (response.status === 302 || response.status === 401) {
+          state.setAuthStatus(AuthStatus.Unauthenticated);
+          window.location.href = '/login';
+          return;
+        }
+        if (!response.ok) throw new Error('HTTP error! status: ' + response.status);
+        const html = await response.text();
+        document.getElementById('content').innerHTML = html;
+        state.setLoadingState(false);
+        return true;
+      } catch (error) {
+        state.setLoadingState(false);
+        state.addNotification({
+          type: NotificationType.Error,
+          message: 'Failed to load content'
+        });
+        return false;
+      }
+    },
+
+    async handleLogin(event) {
+      event.preventDefault();
+      try {
+        state.setAuthStatus(AuthStatus.Loading);
+        const form = event.target;
+        const { email, password } = Object.fromEntries(new FormData(form));
+
+        const response = await api.login(email, password);
+        if (response.error) throw new Error(response.error);
+
+        state.setAuthStatus(AuthStatus.Authenticated);
+        state.setUser(response.data.user);
+        appRouter.navigate('/');
+      } catch (error) {
+        state.setAuthStatus(AuthStatus.Unauthenticated, error.message);
+        state.addNotification({
+          type: NotificationType.Error,
+          message: 'Login failed: ' + error.message
+        });
+      }
+    },
+
+    async handleSignup(event) {
+      event.preventDefault();
+      try {
+        state.setAuthStatus(AuthStatus.Loading);
+        const form = event.target;
+        const formData = new FormData(form);
+        const { email, password, confirm_password } = Object.fromEntries(formData);
+
+        if (password !== confirm_password) {
+          throw new Error('Passwords do not match');
+        }
+
+        const response = await api.signup(email, password);
+        if (response.error) throw new Error(response.error);
+
+        state.setAuthStatus(AuthStatus.Authenticated);
+        state.setUser(response.data.user);
+        appRouter.navigate('/');
+      } catch (error) {
+        state.setAuthStatus(AuthStatus.Unauthenticated, error.message);
+        state.addNotification({
+          type: NotificationType.Error,
+          message: 'Signup failed: ' + error.message
+        });
+      }
+    },
+
+    async handleLogout() {
+      try {
+        state.setAuthStatus(AuthStatus.Loading);
+        const response = await api.logout();
+        if (response.error) throw new Error(response.error);
+
+        state.setAuthStatus(AuthStatus.Unauthenticated);
+        state.setUser(null);
+        window.location.href = '/login';
+      } catch (error) {
+        state.setAuthStatus(AuthStatus.Authenticated);
+        state.addNotification({
+          type: NotificationType.Error,
+          message: 'Logout failed: ' + error.message
+        });
+      }
+    },
+
+    async handleProfileUpdate(event) {
+      event.preventDefault();
+      try {
+        state.setLoadingState(true);
+        const form = event.target;
+        const data = Object.fromEntries(new FormData(form));
+
+        const response = await api.updateProfile(data);
+        if (response.error) throw new Error(response.error);
+
+        state.setUser({ ...state.getState().user.data, ...response.data });
+        state.addNotification({
+          type: NotificationType.Success,
+          message: 'Profile updated successfully'
+        });
+      } catch (error) {
+        state.addNotification({
+          type: NotificationType.Error,
+          message: 'Failed to update profile: ' + error.message
+        });
+      } finally {
+        state.setLoadingState(false);
+      }
+    },
+
+    async handleSettingsUpdate(event) {
+      event.preventDefault();
+      try {
+        state.setLoadingState(true);
+        const form = event.target;
+        const data = Object.fromEntries(new FormData(form));
+
+        const response = await api.updateSettings(data);
+        if (response.error) throw new Error(response.error);
+
+        state.setUserPreferences(data);
+        state.addNotification({
+          type: NotificationType.Success,
+          message: 'Settings updated successfully'
+        });
+      } catch (error) {
+        state.addNotification({
+          type: NotificationType.Error,
+          message: 'Failed to update settings: ' + error.message
+        });
+      } finally {
+        state.setLoadingState(false);
+      }
+    },
+
+    async handleNoteSubmit(event) {
+      event.preventDefault();
+      try {
+        state.setLoadingState(true);
+        const form = event.target;
+        const { text } = Object.fromEntries(new FormData(form));
+
+        const response = await api.createNote(text);
+        if (response.error) throw new Error(response.error);
+
+        state.addNote(response.data);
+        form.reset();
+        state.addNotification({
+          type: NotificationType.Success,
+          message: 'Note created successfully'
+        });
+      } catch (error) {
+        state.addNotification({
+          type: NotificationType.Error,
+          message: 'Failed to create note: ' + error.message
+        });
+      } finally {
+        state.setLoadingState(false);
+      }
+    },
+
+    async handleNoteDelete(id) {
+      try {
+        state.setLoadingState(true);
+        const response = await api.deleteNote(id);
+        if (response.error) throw new Error(response.error);
+
+        state.removeNote(id);
+        state.addNotification({
+          type: NotificationType.Success,
+          message: 'Note deleted successfully'
+        });
+      } catch (error) {
+        state.addNotification({
+          type: NotificationType.Error,
+          message: 'Failed to delete note: ' + error.message
+        });
+      } finally {
+        state.setLoadingState(false);
+      }
+    },
+
+    async handleFolderCreate(name) {
+      try {
+        state.setLoadingState(true);
+        const response = await api.createMemoryFolder(name);
+        if (response.error) throw new Error(response.error);
+
+        state.addMemoryFolder(response.data);
+        state.addNotification({
+          type: NotificationType.Success,
+          message: 'Folder created successfully'
+        });
+      } catch (error) {
+        state.addNotification({
+          type: NotificationType.Error,
+          message: 'Failed to create folder: ' + error.message
+        });
+      } finally {
+        state.setLoadingState(false);
+      }
+    },
+
+    updateTheme(theme) {
+      try {
+        state.setTheme(theme);
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+        state.addNotification({
+          type: NotificationType.Success,
+          message: 'Theme updated successfully'
+        });
+      } catch (error) {
+        state.addNotification({
+          type: NotificationType.Error,
+          message: 'Failed to update theme'
+        });
+      }
+    },
+
+    toggleSidebar() {
+      try {
+        state.toggleSidebar();
+        const sidebar = document.getElementById('sidebar');
+        const content = document.getElementById('content');
+        const isOpen = state.getState().ui.sidebar.isOpen;
+
+        sidebar.style.display = isOpen ? 'block' : 'none';
+        content.classList.toggle('collapsed', !isOpen);
+      } catch (error) {
+        state.addNotification({
+          type: NotificationType.Error,
+          message: 'Failed to toggle sidebar'
+        });
+      }
+    }
+  };
+
+  // Initialize state listeners
+  state.subscribe((newState) => {
+    try {
+      // Update theme
+      document.documentElement.setAttribute('data-theme', newState.ui.theme);
+
+      // Update sidebar
+      const sidebar = document.getElementById('sidebar');
+      const content = document.getElementById('content');
+      if (sidebar && content) {
+        sidebar.style.display = newState.ui.sidebar.isOpen ? 'block' : 'none';
+        content.classList.toggle('collapsed', !newState.ui.sidebar.isOpen);
+      }
+
+      // Update notifications
+      const notificationsContainer = document.getElementById('notifications');
+      if (notificationsContainer) {
+        notificationsContainer.innerHTML = newState.ui.notifications
+          .map(notification => `
+            <div class="toast ${notification.type}">
+              ${notification.message}
+            </div>
+          `)
+          .join('');
+      }
+
+      // Update loading state
+      document.body.classList.toggle('loading', newState.ui.loading);
+    } catch (error) {
+      console.error('State update error:', error);
+    }
+  });
+</script>`;
+
+// Fix folder template implementation
+const folderTemplate = (name: string, isPrivate: boolean = false) => `
+  <div class="folder-edit-menu">
+    <button class="folder-edit-button" onclick="EventHandlers.handleFolderDelete(event, '${name}')">Delete</button>
+    <button class="folder-edit-button" onclick="EventHandlers.handleFolderRename(event, '${name}')">Rename</button>
+    <button class="folder-edit-button" onclick="EventHandlers.handleFolderPrivacy(event, '${name}', ${!isPrivate})">
+      Make ${isPrivate ? 'Public' : 'Private'}
+    </button>
+  </div>
+  <div class="folder-name">${name}</div>
+  <input type="text" class="folder-name-edit" value="${name}" style="display: none;"
+    onkeyup="EventHandlers.handleFolderNameKeyUp(event, '${name}')"
+  >
+`;
+
+// Add memory management functions
+const memoryScripts = `
+<script>
+  const MemoryManager = {
+    async addFolder() {
+      const name = prompt('Enter folder name:');
+      if (name) {
+        await EventHandlers.handleFolderCreate(name);
+      }
+    },
+
+    async editLayout() {
+      document.querySelectorAll('.folder-edit-menu').forEach(menu => {
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+      });
+    },
+
+    async addKnowledge() {
+      const selectedFolder = state.getState().memory.selectedFolder;
+      if (!selectedFolder) {
+        state.addNotification({
+          type: NotificationType.Warning,
+          message: 'Please select a folder first'
+        });
+        return;
+      }
+
+      const text = prompt('Enter knowledge text:');
+      if (text) {
+        await EventHandlers.handleNoteSubmit({
+          preventDefault: () => {},
+          target: {
+            text: { value: text },
+            folderId: selectedFolder.id
+          }
+        });
+      }
+    }
+  };
+
+  // Initialize memory system
+  document.addEventListener('DOMContentLoaded', () => {
+    const memoryContainer = document.querySelector('.memory-container');
+    if (memoryContainer) {
+      memoryContainer.addEventListener('click', (e) => {
+        if (e.target.closest('.folder-edit-menu')) {
+          e.stopPropagation();
+        }
+      });
+    }
+  });
+</script>`;
+
+// Common Components
+const commonHead = (title: string) => `
+  <meta charset="UTF-8">
+  <title>${title} | RusstCorp</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+  ${sharedStyles}
+`;
+
+const actionBar = (showMenuToggle = true) => `
+  <div class="action-bar">
+    ${showMenuToggle ? '<div class="menu-toggle" onclick="toggleSidebar()">☰</div>' : ''}
+    <div class="home-button" onclick="goHome()">🏠</div>
+    <div class="title">RusstCorp</div>
+    <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
+    <div class="user-icon" onclick="toggleMenu()">👤
+      ${userMenu()}
     </div>
-    <div class="content">
+  </div>
+`;
+
+const userMenu = () => `
+  <ul class="menu" id="user-menu">
+    <li class="menu-item" onclick="loadContent('/profile')">Profile</li>
+    <li class="menu-item" onclick="loadContent('/settings')">Settings</li>
+    <li class="menu-item" onclick="handleLogout()">Logout</li>
+  </ul>
+`;
+
+const sidebar = () => `
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-item" onclick="loadContent('/notes')">Notes</div>
+    <div class="sidebar-item" onclick="loadContent('/memory')">Memory</div>
+  </div>
+`;
+
+// Layout Template
+const pageLayout = (title: string, content: string, options: { showSidebar?: boolean; showMenuToggle?: boolean } = {}) => `
+<!DOCTYPE html>
+<html>
+<head>
+  ${commonHead(title)}
+</head>
+<body>
+  ${actionBar(options.showMenuToggle)}
+  ${options.showSidebar ? sidebar() : ''}
+  <div id="notifications"></div>
+  <div class="content" id="content">
+    ${content}
+  </div>
+  ${themeScript}
+  ${router}
+  ${eventHandlers}
+  ${memoryScripts}
+</body>
+</html>
+`;
+
+// Update template functions to use pageLayout
+export const templates = {
+  login: () => pageLayout('Login', `
+    <div class="auth-container">
+      <h1>Login</h1>
+      <form id="login-form" method="POST" action="/auth/login">
+        <input type="email" name="email" placeholder="Email" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+      </form>
+      <p>Don't have an account? <a href="/signup">Sign up</a></p>
+    </div>
+  `, { showSidebar: false, showMenuToggle: false }),
+
+  signup: () => pageLayout('Sign Up', `
+    <div class="auth-container">
       <h1>Sign Up</h1>
       <form id="signup-form" action="/auth/signup" method="POST">
         <input type="email" name="email" placeholder="Email" required>
@@ -252,320 +813,13 @@ export const signupTemplate = () => `
       </form>
       <p>Already have an account? <a href="/login">Login</a></p>
     </div>
-    ${themeScript}
-  </body>
-  </html>
-`;
+  `, { showSidebar: false, showMenuToggle: false }),
 
-// Home template that was previously in home.ts
-export const homeTemplate = () => `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Home | RusstCorp</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: var(--primary-color);
-      color: var(--text-color);
-    }
-    .action-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px;
-      background-color: var(--secondary-color);
-      color: var(--text-color);
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 1000;
-    }
-    .title {
-      text-align: center;
-      flex-grow: 1;
-    }
-    .user-icon, .menu-toggle, .theme-toggle, .home-button {
-      cursor: pointer;
-      position: relative;
-    }
-    .menu {
-      display: none;
-      position: absolute;
-      right: 0;
-      top: 100%;
-      background-color: var(--secondary-color);
-      color: var(--text-color);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      min-width: 150px;
-    }
-    .menu-item {
-      padding: 10px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    .menu-item:hover {
-      background-color: var(--primary-color);
-    }
-    .sidebar {
-      width: 200px;
-      background-color: var(--secondary-color);
-      color: var(--text-color);
-      position: fixed;
-      top: 40px; /* Adjusted to be directly below the action bar */
-      left: 0;
-      height: calc(100% - 40px); /* Adjusted to account for the action bar height */
-      display: block; /* Changed from none to block for initial state */
-    }
-    .sidebar-item {
-      padding: 10px;
-      cursor: pointer;
-    }
-    .sidebar-item:hover {
-      background-color: #c0c0c0; /* Slightly darker grey for hover effect */
-    }
-    .content {
-      margin-top: 50px; /* Adjusted to account for the action bar height */
-      margin-left: 200px; /* Set initial margin to match sidebar width */
-      transition: margin-left 0.3s;
-      padding: 20px; /* Add some padding */
-    }
-    .content.collapsed {
-      margin-left: 0; /* Changed from expanded to collapsed pattern */
-    }
-    :root {
-      --primary-color: white;
-      --secondary-color: #d3d3d3;
-      --text-color: black;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --primary-color: #1a1a1a;
-        --secondary-color: #333;
-        --text-color: white;
-      }
-    }
-    .light-mode {
-      --primary-color: white;
-      --secondary-color: #d3d3d3;
-      --text-color: black;
-    }
-    .dark-mode {
-      --primary-color: #1a1a1a;
-      --secondary-color: #333;
-      --text-color: white;
-    }
-  </style>
-</head>
-<body>
-  <div class="action-bar">
-    <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
-    <div class="home-button" onclick="goHome()">🏠</div>
-    <div class="title">RusstCorp</div>
-    <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
-    <div class="user-icon" onclick="toggleMenu()">👤
-      <ul class="menu" id="user-menu">
-        <li class="menu-item" onclick="loadContent('/profile')">Profile</li>
-        <li class="menu-item" onclick="loadContent('/settings')">Settings</li>
-        <li class="menu-item" onclick="handleLogout()">Logout</li>
-      </ul>
-    </div>
-  </div>
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-item" onclick="loadContent('/notes')">Notes</div>
-    <div class="sidebar-item" onclick="loadContent('/memory')">Memory</div>
-  </div>
-  <div class="content" id="content">
+  home: () => pageLayout('Home', `
     <h1>RusstCorp - Complexity Simplified, with a side of style</h1>
-  </div>
-  <script>
-    function toggleMenu() {
-      const menu = document.getElementById('user-menu');
-      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-    }
-    function toggleSidebar() {
-      const sidebar = document.getElementById('sidebar');
-      const content = document.getElementById('content');
-      if (sidebar.style.display === 'none') {
-        sidebar.style.display = 'block';
-        content.classList.remove('collapsed');
-      } else {
-        sidebar.style.display = 'none';
-        content.classList.add('collapsed');
-      }
-    }
-    function goHome() {
-      window.location.href = '/';
-    }
-    // Theme management
-    function getSystemTheme() {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
+  `, { showSidebar: true }),
 
-    function setTheme(theme) {
-      const root = document.documentElement;
-      root.classList.remove('light-mode', 'dark-mode');
-      if (theme !== 'system') {
-        root.classList.add(theme + '-mode');
-      }
-      localStorage.setItem('theme', theme);
-      updateThemeToggleIcon(theme);
-    }
-
-    function updateThemeToggleIcon(theme) {
-      const icon = document.querySelector('.theme-toggle');
-      // Fixed the icon characters
-      switch(theme) {
-        case 'system':
-          icon.textContent = '🌓';
-          break;
-        case 'dark':
-          icon.textContent = '🌙';
-          break;
-        case 'light':
-          icon.textContent = '☀️';
-          break;
-      }
-    }
-
-    function toggleTheme() {
-      const currentTheme = localStorage.getItem('theme') || 'system';
-      const themes = ['system', 'light', 'dark'];
-      const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
-      const newTheme = themes[nextIndex];
-      setTheme(newTheme);
-
-      if (newTheme === 'system') {
-        // If system theme, apply the system preference
-        const systemTheme = getSystemTheme();
-        document.documentElement.classList.toggle('dark-mode', systemTheme === 'dark');
-      }
-    }
-
-    // Initialize theme
-    document.addEventListener('DOMContentLoaded', () => {
-      const savedTheme = localStorage.getItem('theme') || 'system';
-      setTheme(savedTheme);
-
-      if (savedTheme === 'system') {
-        const systemTheme = getSystemTheme();
-        document.documentElement.classList.toggle('dark-mode', systemTheme === 'dark');
-      }
-
-      // Listen for system theme changes
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        if (localStorage.getItem('theme') === 'system') {
-          document.documentElement.classList.toggle('dark-mode', e.matches);
-        }
-      });
-    });
-
-    async function logout() {
-      try {
-        const response = await fetch('/auth/logout', { // Use the correct path for logout
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.ok) {
-          window.location.href = '/login';
-        } else {
-          console.error('Logout failed:', await response.text());
-          alert('Failed to logout. Please try again.');
-          return false;
-        }
-      } catch (error) {
-        console.error('Logout error:', error);
-        alert('Failed to logout. Please try again.');
-        return false;
-      }
-      return true;
-    }
-
-    async function handleLogout() {
-      if (await logout()) {
-        toggleMenu();
-      }
-    }
-
-    document.addEventListener('click', function(event) {
-      const menu = document.getElementById('user-menu');
-      const userIcon = event.target.closest('.user-icon');
-      const menuItem = event.target.closest('.menu-item');
-
-      if (!userIcon && !menuItem) {
-        menu.style.display = 'none';
-      }
-    });
-
-    async function loadContent(path) {
-      try {
-        const response = await fetch(path);
-        if (response.status === 302 || response.status === 401) {
-          window.location.href = '/login';
-          return;
-        }
-        if (!response.ok) {
-          throw new Error('HTTP error! status: ' + response.status);
-        }
-        const html = await response.text();
-        document.getElementById('content').innerHTML = html;
-        history.pushState(null, '', path);
-        return true;
-      } catch (error) {
-        console.error('Content loading error:', error);
-        alert('Failed to load content. Please try again.');
-        return false;
-      }
-    }
-
-    // Handle browser back/forward buttons
-    window.onpopstate = () => {
-      loadContent(window.location.pathname);
-    }
-  </script>
-</body>
-</html>
-`;
-
-// Profile template that was previously in profile.ts
-export const profileTemplate = () => `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Profile | RusstCorp</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-  ${sharedStyles}
-</head>
-<body>
-  <div class="action-bar">
-    <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
-    <div class="home-button" onclick="goHome()">🏠</div>
-    <div class="title">RusstCorp</div>
-    <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
-    <div class="user-icon" onclick="toggleMenu()">👤
-      <ul class="menu" id="user-menu">
-        <li class="menu-item" onclick="loadContent('/profile')">Profile</li>
-        <li class="menu-item" onclick="loadContent('/settings')">Settings</li>
-        <li class="menu-item" onclick="handleLogout()">Logout</li>
-      </ul>
-    </div>
-  </div>
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-item" onclick="loadContent('/notes')">Notes</div>
-    <div class="sidebar-item" onclick="loadContent('/memory')">Memory</div>
-  </div>
-  <div class="content" id="content">
+  profile: () => pageLayout('Profile', `
     <h1>Profile</h1>
     <form id="profile-form" method="POST" action="/profile">
       <div>
@@ -576,62 +830,9 @@ export const profileTemplate = () => `
       </div>
       <button type="submit">Update Profile</button>
     </form>
-  </div>
-  ${themeScript}
-  <script>
-    function toggleMenu() {
-      const menu = document.getElementById('user-menu');
-      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-    }
-    function toggleSidebar() {
-      const sidebar = document.getElementById('sidebar');
-      const content = document.getElementById('content');
-      if (sidebar.style.display === 'none') {
-        sidebar.style.display = 'block';
-        content.classList.remove('collapsed');
-      } else {
-        sidebar.style.display = 'none';
-        content.classList.add('collapsed');
-      }
-    }
-    function goHome() {
-      window.location.href = '/';
-    }
-    // ...existing theme management and other scripts...
-  </script>
-</body>
-</html>
-`;
+  `, { showSidebar: true }),
 
-// Settings template that was previously in settings.ts
-export const settingsTemplate = () => `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Settings | RusstCorp</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-  ${sharedStyles}
-</head>
-<body>
-  <div class="action-bar">
-    <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
-    <div class="home-button" onclick="goHome()">🏠</div>
-    <div class="title">RusstCorp</div>
-    <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
-    <div class="user-icon" onclick="toggleMenu()">👤
-      <ul class="menu" id="user-menu">
-        <li class="menu-item" onclick="loadContent('/profile')">Profile</li>
-        <li class="menu-item" onclick="loadContent('/settings')">Settings</li>
-        <li class="menu-item" onclick="handleLogout()">Logout</li>
-      </ul>
-    </div>
-  </div>
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-item" onclick="loadContent('/notes')">Notes</div>
-    <div class="sidebar-item" onclick="loadContent('/memory')">Memory</div>
-  </div>
-  <div class="content" id="content">
+  settings: () => pageLayout('Settings', `
     <h1>Settings</h1>
     <div class="settings-container">
       <h1>Account Settings</h1>
@@ -663,97 +864,9 @@ export const settingsTemplate = () => `
         <button type="submit">Save Changes</button>
       </form>
     </div>
-  </div>
-  ${themeScript}
-  <script>
-    document.getElementById('settings-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(e.target);
-      const response = await fetch('/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(Object.fromEntries(formData))
-      });
-      if (response.ok) {
-        alert('Settings updated successfully');
-      } else {
-        alert('Failed to update settings');
-      }
-    });
+  `, { showSidebar: true }),
 
-    // Load current user data
-    (async () => {
-      const response = await fetch('/settings');
-      if (response.ok) {
-        const data = await response.json();
-        document.getElementById('email').value = data.email;
-      }
-    })();
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const savedTheme = localStorage.getItem('theme') || 'system';
-      document.getElementById('theme-select').value = savedTheme;
-    });
-
-    function updateThemePreference() {
-      const theme = document.getElementById('theme-select').value;
-      setTheme(theme);
-    }
-
-    function toggleMenu() {
-      const menu = document.getElementById('user-menu');
-      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-    }
-    function toggleSidebar() {
-      const sidebar = document.getElementById('sidebar');
-      const content = document.getElementById('content');
-      if (sidebar.style.display === 'none') {
-        sidebar.style.display = 'block';
-        content.classList.remove('collapsed');
-      } else {
-        sidebar.style.display = 'none';
-        content.classList.add('collapsed');
-      }
-    }
-    function goHome() {
-      window.location.href = '/';
-    }
-  </script>
-</body>
-</html>
-`;
-
-// Notes template that was previously in notes.ts
-export const notesTemplate = () => `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Notes | RusstCorp</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-  ${sharedStyles}
-</head>
-<body>
-  <div class="action-bar">
-    <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
-    <div class="home-button" onclick="goHome()">🏠</div>
-    <div class="title">RusstCorp</div>
-    <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
-    <div class="user-icon" onclick="toggleMenu()">👤
-      <ul class="menu" id="user-menu">
-        <li class="menu-item" onclick="loadContent('/profile')">Profile</li>
-        <li class="menu-item" onclick="loadContent('/settings')">Settings</li>
-        <li class="menu-item" onclick="handleLogout()">Logout</li>
-      </ul>
-    </div>
-  </div>
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-item" onclick="loadContent('/notes')">Notes</div>
-    <div class="sidebar-item" onclick="loadContent('/memory')">Memory</div>
-  </div>
-  <div class="content" id="content">
+  notes: () => pageLayout('Notes', `
     <h1>Notes</h1>
     <div>
       <h2>Notes</h2>
@@ -765,326 +878,48 @@ export const notesTemplate = () => `
         <button type="submit">Save Note</button>
       </form>
     </div>
-  </div>
-  ${themeScript}
-  <script>
-    function toggleMenu() {
-      const menu = document.getElementById('user-menu');
-      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-    }
-    function toggleSidebar() {
-      const sidebar = document.getElementById('sidebar');
-      const content = document.getElementById('content');
-      if (sidebar.style.display === 'none') {
-        sidebar.style.display = 'block';
-        content.classList.remove('collapsed');
-      } else {
-        sidebar.style.display = 'none';
-        content.classList.add('collapsed');
-      }
-    }
-    function goHome() {
-      window.location.href = '/';
-    }
-    async function loadNotes() {
-      try {
-        const response = await fetch('/notes.json'); // Fetch notes from the correct path
-        if (!response.ok) throw new Error('Failed to load notes');
-        const notes = await response.json();
-        document.getElementById('notes-list').innerHTML = notes.length ?
-          notes.map(note => \`<div class="note">\${note.text}</div>\`).join('') :
-          '<p>No notes yet</p>';
-      } catch (error) {
-        console.error('Error loading notes:', error);
-        document.getElementById('notes-list').innerHTML = '<p>Error loading notes</p>';
-      }
-    }
+  `, { showSidebar: true }),
 
-    async function handleNoteSubmit(event) {
-      event.preventDefault();
-      const form = event.target;
-      try {
-        const response = await fetch('/notes', { // Use the correct path for creating notes
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: form.text.value })
-        });
-        if (!response.ok) throw new Error('Failed to save note');
-        form.reset();
-        await loadNotes();
-      } catch (error) {
-        console.error('Error saving note:', error);
-        alert('Failed to save note');
-      }
-    }
-
-    loadNotes();
-  </script>
-</body>
-</html>
-`;
-
-// Memory template that was previously in memory.ts
-export const memoryTemplate = () => {
-  const folderTemplate = (name: string) => `
-    <div class="folder-edit-menu">
-      <button class="folder-edit-button" onclick="deleteFolder(this)">Delete</button>
-      <button class="folder-edit-button" onclick="toggleFolderNameEdit(this)">Change Name</button>
-      <button class="folder-edit-button" onclick="togglePrivate(this)">Make Private</button>
-      <button class="folder-edit-button" onclick="editSettings(this)">Edit Settings</button>
-    </div>
-    <p class="folder-name">${name}</p>
-    <input type="text" class="folder-name-edit" value="${name}">
-  `;
-
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Memory Manager | RusstCorp</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-  ${sharedStyles}
-  <style>
-    .memory-menu-bar {
-      display: flex;
-      justify-content: flex-start;
-      gap: 20px;
-      padding: 1rem;
-      background-color: var(--secondary-color);
-      margin: 60px 0 20px 200px;  /* Top margin accounts for action-bar */
-      border-radius: 8px;
-    }
-
-    .memory-menu-button {
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      background-color: var(--primary-color);
-      color: var(--text-color);
-      cursor: pointer;
-    }
-
-    .memory-menu-button:hover {
-      opacity: 0.9;
-    }
-
-    .memory-container {
-      margin: 20px 20px 20px 200px;
-      padding: 2rem;
-      background-color: var(--secondary-color);
-      border-radius: 8px;
-      min-height: calc(100vh - 180px);  /* Adjust for action-bar, menu-bar, and margins */
-    }
-
-    /* Adjust when sidebar is collapsed */
-    .content.collapsed .memory-menu-bar {
-      margin-left: 20px;
-    }
-
-    .content.collapsed .memory-container {
-      margin-left: 20px;
-    }
-
-    .folder-edit-menu {
-      display: none;
-      position: absolute;
-      top: -40px;
-      left: 0;
-      right: 0;
-      background-color: var(--secondary-color);
-      padding: 8px;
-      border-radius: 4px 4px 0 0;
-      box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
-    }
-
-    .folder-edit-button {
-      padding: 4px 8px;
-      margin: 0 4px;
-      border: none;
-      border-radius: 3px;
-      background-color: var(--primary-color);
-      color: var(--text-color);
-      cursor: pointer;
-      font-size: 0.8em;
-    }
-
-    .folder {
-      position: relative;
-      min-width: 120px;
-      text-align: center;
-    }
-
-    .folder.private {
-      opacity: 0.6;
-    }
-
-    .folder-name {
-      margin: 0;
-      padding: 4px;
-    }
-
-    .folder-name-edit {
-      display: none;
-      width: 90%;
-      margin: 4px auto;
-      padding: 2px;
-      border: 1px solid var(--text-color);
-      border-radius: 3px;
-    }
-  </style>
-</head>
-<body>
-  <div class="action-bar">
-    <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
-    <div class="home-button" onclick="goHome()">🏠</div>
-    <div class="title">Memory Manager</div>
-    <div class="theme-toggle" onclick="toggleTheme()">🌓</div>
-    <div class="user-icon" onclick="toggleMenu()">👤
-      <ul class="menu" id="user-menu">
-        <li class="menu-item" onclick="loadContent('/profile')">Profile</li>
-        <li class="menu-item" onclick="loadContent('/settings')">Settings</li>
-        <li class="menu-item" onclick="handleLogout()">Logout</li>
-      </ul>
-    </div>
-  </div>
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-item" onclick="loadContent('/notes')">Notes</div>
-    <div class="sidebar-item" onclick="loadContent('/memory')">Memory</div>
-  </div>
-  <div class="content" id="content">
+  memory: () => pageLayout('Memory Manager', `
     <div class="memory-menu-bar">
       <button class="memory-menu-button" onclick="addFolder()">Add Folder</button>
-      <button class="memory-menu-button" onclick="editLayout()">Edit Layout</button>
-      <button class="memory-menu-button" onclick="addKnowledge()">Add Knowledge</button>
+      <button class="memory-menu-button" onclick="editLayout()">Edit Layout</button>      <button class="memory-menu-button" onclick="addKnowledge()">Add Knowledge</button>    </div>    <div class="memory-container">      <h1>Memory Manager</h1>      <div class="folders">        <div class="folder" onclick="loadContent('/memory/work')">${folderTemplate('Work')}</div>        <div class="folder" onclick="loadContent('/memory/personal')">${folderTemplate('Personal')}</div>        <div class="folder" onclick="loadContent('/memory/family')">${folderTemplate('Family')}</div>        <div class="folder" onclick="loadContent('/memory/private')">${folderTemplate('Private')}</div>      </div>
     </div>
-    <div class="memory-container">
-      <h1>Memory Manager</h1>
-      <div class="folders">
-        <div class="folder" onclick="loadContent('/memory/work')">${folderTemplate('Work')}</div>
-        <div class="folder" onclick="loadContent('/memory/personal')">${folderTemplate('Personal')}</div>
-        <div class="folder" onclick="loadContent('/memory/family')">${folderTemplate('Family')}</div>
-        <div class="folder" onclick="loadContent('/memory/private')">${folderTemplate('Private')}</div>
-      </div>
-    </div>
-  </div>
-  ${themeScript}
-  <script>
-    function toggleMenu() {
-      const menu = document.getElementById('user-menu');
-      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-    }
-    function toggleSidebar() {
-      const sidebar = document.getElementById('sidebar');
-      const content = document.getElementById('content');
-      if (sidebar.style.display === 'none') {
-        sidebar.style.display = 'block';
-        content.classList.remove('collapsed');
-      } else {
-        sidebar.style.display = 'none';
-        content.classList.add('collapsed');
-      }
-    }
-    function goHome() {
-      window.location.href = '/';
-    }
-    // ...existing theme management and other scripts...
-    function addFolder() {
-      const foldersDiv = document.querySelector('.folders');
-      const newFolder = document.createElement('div');
-      const folderName = 'New Folder';
-
-      newFolder.className = 'folder';
-      newFolder.innerHTML = \`${folderTemplate('New Folder')}\`;
-
-      foldersDiv.appendChild(newFolder);
-    }
-
-    function editLayout() {
-      const folders = document.querySelectorAll('.folder');
-      folders.forEach(folder => {
-        const menu = folder.querySelector('.folder-edit-menu');
-        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-      });
-    }
-
-    function deleteFolder(button) {
-      if (confirm('Are you sure you want to delete this folder?')) {
-        button.closest('.folder').remove();
-      }
-    }
-
-    function toggleFolderNameEdit(button) {
-      const folder = button.closest('.folder');
-      const nameP = folder.querySelector('.folder-name');
-      const nameInput = folder.querySelector('.folder-name-edit');
-
-      if (nameInput.style.display === 'block') {
-        nameP.textContent = nameInput.value;
-        nameP.style.display = 'block';
-        nameInput.style.display = 'none';
-      } else {
-        nameInput.style.display = 'block';
-        nameP.style.display = 'none';
-        nameInput.focus();
-      }
-    }
-
-    function togglePrivate(button) {
-      const folder = button.closest('.folder');
-      const isPrivate = folder.classList.toggle('private');
-      button.textContent = isPrivate ? 'Make Public' : 'Make Private';
-    }
-
-    function editSettings(button) {
-      // TODO: Implement settings logic
-      console.log('Edit settings clicked');
-    }
-
-    function addKnowledge() {
-      // TODO: Implement knowledge addition
-      console.log('Add knowledge clicked');
-    }
-
-    // Add event listener for folder rename on Enter key
-    function setupFolderRenameListeners() {
-      document.querySelectorAll('.folder-name-edit').forEach(input => {
-        input.addEventListener('keyup', (e) => {
-          if (e.key === 'Enter') {
-            const folder = input.closest('.folder');
-            const nameP = folder.querySelector('.folder-name');
-            nameP.textContent = input.value;
-            nameP.style.display = 'block';
-            input.style.display = 'none';
-          }
-        });
-      });
-    }
-
-    // Add click handler to prevent folder navigation during edit mode
-    function handleFolderClick(e) {
-      if (e.target.closest('.folder-edit-menu')) {
-        e.stopPropagation();
-      }
-    }
-
-    // Initialize after DOM loads
-    document.addEventListener('DOMContentLoaded', () => {
-      setupFolderRenameListeners();
-      document.querySelector('.folders').addEventListener('click', handleFolderClick, true);
-    });
-  </script>
-</body>
-</html>
-`};
-
-// Export templates object correctly
-export const templates = {
-  login: loginTemplate,
-  signup: signupTemplate,
-  home: homeTemplate,
-  profile: profileTemplate,
-  settings: settingsTemplate,
-  notes: notesTemplate,
-  memory: memoryTemplate
+  `, { showSidebar: true })
 };
+
+// Error templates
+export const errorTemplates = {
+  notFound: () => pageLayout('404 Not Found', `
+    <div class="error-container">
+      <h1>Page Not Found</h1>
+      <p>The page you're looking for doesn't exist.</p>
+      <a href="/">Return to Home</a>
+    </div>
+  `, { showSidebar: false }),
+
+  serverError: (error: Error) => pageLayout('500 Server Error', `
+    <div class="error-container">
+      <h1>Server Error</h1>
+      <p>Something went wrong on our end.</p>
+      <p><small>${error.message}</small></p>
+      <a href="/">Return to Home</a>
+    </div>
+  `, { showSidebar: false }),
+};
+
+// Helper function for safe template rendering
+export function renderTemplate(
+  templateFn: () => string,
+  errorHandler?: (error: Error) => void
+): string {
+  try {
+    return templateFn();
+  } catch (error) {
+    console.error('Template rendering error:', error);
+    if (errorHandler) {
+      errorHandler(error as Error);
+    }
+    return errorTemplates.serverError(error as Error);
+  }
+}

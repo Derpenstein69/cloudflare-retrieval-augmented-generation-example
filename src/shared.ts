@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import type { Env } from './types';
 import { getCookie } from 'hono/cookie';
+import { errorTemplates, renderTemplate } from './Components';
 
 // ===== UTILITY FUNCTIONS =====
 export async function hashPassword(password: string): Promise<string> {
@@ -56,7 +57,95 @@ export class SessionDO {
     this.env = env;
   }
 
-  // ...existing SessionDO methods...
+  async fetch(request: Request): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+
+      switch (url.pathname) {
+        case '/save':
+          return await this.handleSave(request);
+        case '/get':
+          return await this.handleGet();
+        case '/delete':
+          return await this.handleDelete();
+        case '/refresh':
+          return await this.handleRefresh();
+        default:
+          return new Response('Not Found', { status: 404 });
+      }
+    } catch (error) {
+      console.error('Session operation error:', error);
+      return new Response('Internal Error', { status: 500 });
+    }
+  }
+
+  private async handleSave(request: Request): Promise<Response> {
+    try {
+      const email = await request.text();
+      const expires = Date.now() + SessionDO.SESSION_TIMEOUT;
+
+      await Promise.all([
+        this.state.storage.put('email', email),
+        this.state.storage.put('expires', expires),
+        this.state.storage.put('created', Date.now())
+      ]);
+
+      return new Response('OK');
+    } catch (error) {
+      console.error('Session save error:', error);
+      throw error;
+    }
+  }
+
+  private async handleGet(): Promise<Response> {
+    try {
+      const [email, expires] = await Promise.all([
+        this.state.storage.get('email'),
+        this.state.storage.get('expires')
+      ]);
+
+      if (!email || !expires) {
+        return new Response('Session not found', { status: 404 });
+      }
+
+      if (Date.now() > expires) {
+        await this.handleDelete();
+        return new Response('Session expired', { status: 401 });
+      }
+
+      return new Response(email.toString());
+    } catch (error) {
+      console.error('Session get error:', error);
+      throw error;
+    }
+  }
+
+  private async handleDelete(): Promise<Response> {
+    try {
+      await this.state.storage.deleteAll();
+      return new Response('OK');
+    } catch (error) {
+      console.error('Session delete error:', error);
+      throw error;
+    }
+  }
+
+  private async handleRefresh(): Promise<Response> {
+    try {
+      const email = await this.state.storage.get('email');
+      if (!email) {
+        return new Response('Session not found', { status: 404 });
+      }
+
+      const expires = Date.now() + SessionDO.SESSION_TIMEOUT;
+      await this.state.storage.put('expires', expires);
+
+      return new Response('OK');
+    } catch (error) {
+      console.error('Session refresh error:', error);
+      throw error;
+    }
+  }
 
   static createSessionId(namespace: DurableObjectNamespace, sessionToken: string): DurableObjectId {
     return namespace.idFromName(sessionToken);
@@ -66,24 +155,11 @@ export class SessionDO {
 // ===== MIDDLEWARE =====
 export const errorHandler = async (err: Error, c: Context<{ Bindings: Env }>) => {
   console.error('Application error:', err);
-  return c.json({ error: 'Internal server error' }, 500);
+  return c.html(renderTemplate(() => errorTemplates.serverError(err)));
 };
 
 export const notFoundHandler = (c: Context) => {
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>404 Not Found - RusstCorp</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-      </head>
-      <body>
-        <h1>Page Not Found</h1>
-        <p>The page you're looking for doesn't exist.</p>
-        <a href="/">Return to Home</a>
-      </body>
-    </html>
-  `, 404);
+  return c.html(renderTemplate(errorTemplates.notFound));
 };
 
 export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: () => Promise<void>) => {
@@ -107,90 +183,6 @@ export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: () => 
     return c.redirect('/login');
   }
 };
-
-// ===== LAYOUTS =====
-export const baseLayout = (title: string, content: string, options: { showNav?: boolean } = {}) => `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>${title} | RusstCorp</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-  ${sharedStyles}
-</head>
-<body>
-  ${options.showNav ? navigationBar() : simpleHeader()}
-  ${content}
-  ${themeScript}
-  ${options.showNav ? commonScripts : ''}
-</body>
-</html>
-`;
-
-const navigationBar = () => `
-  // ...existing navigationBar code...
-`;
-
-const simpleHeader = () => `
-  // ...existing simpleHeader code...
-`;
-
-// ===== STYLES =====
-export const sharedStyles = `
-  <style>
-    :root {
-      --primary-color: white;
-      --secondary-color: #d3d3d3;
-      --text-color: black;
-    }
-    // ...existing styles...
-  </style>
-`;
-
-// ===== SCRIPTS =====
-export const themeScript = `
-  <script>
-    // ...existing theme script...
-  </script>
-`;
-
-export const commonScripts = `
-  <script>
-    function toggleMenu() {
-      const menu = document.getElementById('user-menu');
-      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-    }
-
-    function toggleSidebar() {
-      const sidebar = document.getElementById('sidebar');
-      const content = document.getElementById('content');
-      sidebar.style.display = sidebar.style.display === 'none' ? 'block' : 'none';
-      content.classList.toggle('collapsed');
-    }
-
-    function goHome() {
-      window.location.href = '/';
-    }
-
-    function loadContent(path) {
-      window.location.href = path;
-    }
-
-    async function handleLogout() {
-      try {
-        const response = await fetch('/logout', { method: 'POST' });
-        if (response.ok) {
-          window.location.href = '/login';
-        } else {
-          throw new Error('Logout failed');
-        }
-      } catch (error) {
-        console.error('Logout error:', error);
-        alert('Failed to logout. Please try again.');
-      }
-    }
-  </script>
-`;
 
 // ===== ENVIRONMENT =====
 export function validateEnv(env: Env) {
