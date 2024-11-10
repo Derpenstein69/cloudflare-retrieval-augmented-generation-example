@@ -14,12 +14,44 @@ import {
   AuthState
 } from './types';
 import { Logger } from './shared';
-// Safe logging function that doesn't depend on external Logger
-const backuplog = (level: 'DEBUG' | 'INFO' | 'ERROR' | 'WARN', message: string, data?: any) => {
-  const timestamp = new Date().toISOString();
-  console.log(JSON.stringify({ timestamp, level, message, data }));
+
+// Theme configuration
+const themeConfig = {
+  light: {
+    '--primary-bg': '#ffffff',
+    '--secondary-bg': '#f5f5f5',
+    '--accent-color': '#007bff',
+    '--text-primary': '#333333',
+    '--text-secondary': '#666666',
+    '--border-color': '#dddddd',
+    '--error-color': '#dc3545',
+    '--success-color': '#28a745',
+    '--warning-color': '#ffc107',
+    '--shadow-color': 'rgba(0,0,0,0.1)',
+    '--input-bg': '#ffffff',
+    '--input-text': '#333333',
+    '--button-primary-bg': '#007bff',
+    '--button-primary-text': '#ffffff',
+  },
+  dark: {
+    '--primary-bg': '#1a1a1a',
+    '--secondary-bg': '#2d2d2d',
+    '--accent-color': '#4dabf7',
+    '--text-primary': '#ffffff',
+    '--text-secondary': '#bbbbbb',
+    '--border-color': '#404040',
+    '--error-color': '#ff4444',
+    '--success-color': '#4caf50',
+    '--warning-color': '#ffeb3b',
+    '--shadow-color': 'rgba(0,0,0,0.3)',
+    '--input-bg': '#333333',
+    '--input-text': '#ffffff',
+    '--button-primary-bg': '#4dabf7',
+    '--button-primary-text': '#ffffff',
+  }
 };
-// Shared styles
+
+// Shared styles - keep only one declaration
 export const sharedStyles = `
   <style>
     :root {
@@ -191,8 +223,13 @@ export const sharedStyles = `
   </style>
 `;
 
+// Safe logging function that doesn't depend on external Logger
+const backuplog = (level: 'DEBUG' | 'INFO' | 'ERROR' | 'WARN', message: string, data?: any) => {
+  const timestamp = new Date().toISOString();
+  console.log(JSON.stringify({ timestamp, level, message, data }));
+};
+
 // Base layout template
-// Base components - keep these at the top level only
 const baseLayout = (title: string, content: string) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -254,6 +291,28 @@ export function renderTemplate(template: () => string): string {
     );
   }
 }
+
+// ===== MIDDLEWARE =====
+export const errorHandler = async (err: Error, c: Context<{ Bindings: Env }>) => {
+  Logger.log('ERROR', 'Application error', {
+    error: err.message,
+    stack: err.stack,
+    path: c.req.path,
+    method: c.req.method
+  });
+  if (err instanceof AppError) {
+    return c.json({
+      error: err.message,
+      code: err.code,
+      details: err.details
+    }, err.status);
+  }
+  return c.html(renderTemplate(() => errorTemplates.serverError(err)));
+};
+
+export const notFoundHandler = (c: Context) => {
+  return c.html(renderTemplate(errorTemplates.notFound));
+};
 
 // ===== SECURITY UTILS =====
 export function validatePasswordStrength(password: string): { valid: boolean; reason?: string } {
@@ -433,339 +492,6 @@ export class AppError extends Error {
     this.name = 'AppError';
   }
 }
-
-// ===== MIDDLEWARE =====
-export const errorHandler = async (err: Error, c: Context<{ Bindings: Env }>) => {
-  Logger.log('ERROR', 'Application error', {
-    error: err.message,
-    stack: err.stack,
-    path: c.req.path,
-    method: c.req.method
-  });
-  if (err instanceof AppError) {
-    return c.json({
-      error: err.message,
-      code: err.code,
-      details: err.details
-    }, err.status);
-  }
-  return c.html(renderTemplate(() => errorTemplates.serverError(err)));
-};
-
-export const notFoundHandler = (c: Context) => {
-  return c.html(renderTemplate(errorTemplates.notFound));
-};
-
-// Theme configuration
-const themeConfig = {
-  light: {
-    '--primary-bg': '#ffffff',
-    '--secondary-bg': '#f5f5f5',
-    '--accent-color': '#007bff',
-    '--text-primary': '#333333',
-    '--text-secondary': '#666666',
-    '--border-color': '#dddddd',
-    '--error-color': '#dc3545',
-    '--success-color': '#28a745',
-    '--warning-color': '#ffc107',
-    '--shadow-color': 'rgba(0,0,0,0.1)',
-    '--input-bg': '#ffffff',
-    '--input-text': '#333333',
-    '--button-primary-bg': '#007bff',
-    '--button-primary-text': '#ffffff',
-  },
-  dark: {
-    '--primary-bg': '#1a1a1a',
-    '--secondary-bg': '#2d2d2d',
-    '--accent-color': '#4dabf7',
-    '--text-primary': '#ffffff',
-    '--text-secondary': '#bbbbbb',
-    '--border-color': '#404040',
-    '--error-color': '#ff4444',
-    '--success-color': '#4caf50',
-    '--warning-color': '#ffeb3b',
-    '--shadow-color': 'rgba(0,0,0,0.3)',
-    '--input-bg': '#333333',
-    '--input-text': '#ffffff',
-    '--button-primary-bg': '#4dabf7',
-    '--button-primary-text': '#ffffff',
-  }
-};
-
-// Shared styles
-export const sharedStyles = `
-  <style>
-    :root {
-      ${Object.entries(themeConfig.light)
-        .map(([prop, value]) => `${prop}: ${value};`)
-        .join('\n      ')}
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        ${Object.entries(themeConfig.dark)
-          .map(([prop, value]) => `${prop}: ${value};`)
-          .join('\n      ')}
-      }
-    }
-
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: var(--primary-bg);
-      color: var(--text-primary);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-    .content {
-      background-color: var(--secondary-bg);
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px var(--shadow-color);
-      width: 100%;
-      max-width: 400px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-    .action-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px;
-      background-color: var(--secondary-bg);
-      color: var(--text-primary);
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 1000;
-      border-bottom: 1px solid var(--border-color);
-    }
-    .auth-container {
-      max-width: 400px;
-      margin: 2rem auto;
-      padding: 2rem;
-      background: var(--secondary-bg);
-      border-radius: 8px;
-      box-shadow: 0 2px 4px var(--shadow-color);
-    }
-    .form-group {
-      margin-bottom: 1rem;
-    }
-    .error-container {
-      color: var(--error-color);
-      margin-bottom: 1rem;
-      padding: 0.5rem;
-      border: 1px solid var(--error-color);
-      border-radius: 4px;
-    }
-    .title {
-      text-align: center;
-      flex-grow: 1;
-    }
-    .theme-toggle {
-      cursor: pointer;
-    }
-    .user-icon {
-      cursor: pointer;
-      position: relative;
-    }
-    .menu {
-      display: none;
-      position: absolute;
-      right: 0;
-      top: 100%;
-      background-color: var(--secondary-bg);
-      color: var(--text-primary);
-      box-shadow: 0 4px 8px var(--shadow-color);
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      min-width: 150px;
-      border: 1px solid var(--border-color);
-    }
-    .menu-item {
-      padding: 10px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    .menu-item:hover {
-      background-color: var(--primary-bg);
-    }
-    .sidebar {
-      width: 200px;
-      background-color: var(--secondary-bg);
-      color: var(--text-primary);
-      position: fixed;
-      top: 40px;
-      left: 0;
-      height: calc(100% - 40px);
-      display: block;
-    }
-    .sidebar-item {
-      padding: 10px;
-      cursor: pointer;
-    }
-    .sidebar-item:hover {
-      background-color: #c0c0c0;
-    }
-    .content {
-      margin-top: 50px;
-      margin-left: 200px;
-      transition: margin-left 0.3s;
-      padding: 20px;
-    }
-    .content.collapsed {
-      margin-left: 0;
-    }
-    .home-button {
-      cursor: pointer;
-      margin-left: 10px;
-    }
-    .folders {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 20px;
-      margin-top: 20px;
-    }
-    .folder {
-      background-color: var(--secondary-bg);
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px var(--shadow-color);
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    .folder:hover {
-      background-color: var(--primary-bg);
-    }
-    .light-mode {
-      --primary-color: white;
-      --secondary-color: #d3d3d3;
-      --text-color: black;
-    }
-    .dark-mode {
-      --primary-color: #1a1a1a;
-      --secondary-color: #333;
-      --text-color: white;
-    }
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      padding: 10px 20px;
-    }
-  </style>
-`;
-
-export async function hashPassword(password: string): Promise<string> {
-  try {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    return btoa(String.fromCharCode(...new Uint8Array(hash)));
-  } catch (error) {
-    Logger.log('ERROR', 'Password hashing error', { error });
-    throw new Error('Failed to hash password');
-  }
-}
-
-export function generateSecureKey(length: number = 32): string {
-  try {
-    const array = new Uint8Array(length);
-    crypto.getRandomValues(array);
-    return Array.from(array)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-  } catch (error) {
-    Logger.log('ERROR', 'Key generation error', { error });
-    throw new Error('Failed to generate secure key');
-  }
-}
-
-export function validateEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
-
-export const safeExecute = async <T>(
-  operation: () => Promise<T>,
-  errorMessage: string
-): Promise<T> => {
-  try {
-    return await operation();
-  } catch (error) {
-    Logger.log('ERROR', `${errorMessage}`, { error });
-    throw new AppError(errorMessage, 'OPERATION_FAILED');
-  }
-};
-
-// ===== MIDDLEWARE =====
-export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: () => Promise<void>) => {
-  const requestId = crypto.randomUUID();
-  try {
-    const path = new URL(c.req.url).pathname;
-    if (['/login', '/signup', '/public'].some(p => path.startsWith(p))) {
-      return next();
-    }
-
-    const sessionToken = getCookie(c, 'session');
-    if (!sessionToken) {
-      Logger.log('WARN', 'Auth middleware - No session token', { requestId, path });
-      throw new AppError('No session token', 'AUTH_REQUIRED', 401);
-    }
-
-    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
-    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
-    const response = await sessionDO.fetch(new Request('https://dummy/get'));
-
-    if (!response.ok) {
-      Logger.log('WARN', 'Auth middleware - Invalid session', {
-        requestId,
-        sessionToken,
-        statusCode: response.status
-      });
-      deleteCookie(c, 'session', { path: '/' });
-      throw new AppError('Invalid session', 'AUTH_FAILED', 401);
-    }
-
-    const session = await response.json();
-    c.set('userEmail', session.email);
-    c.set('session', session);
-    c.set('requestId', requestId);
-
-    Logger.log('INFO', 'Auth middleware - Session validated', {
-      requestId,
-      userEmail: session.email,
-      lastActivity: session.lastActivity
-    });
-
-    await next();
-  } catch (error) {
-    Logger.log('ERROR', 'Auth middleware error', {
-      requestId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
-
-    deleteCookie(c, 'session', { path: '/' });
-
-    if (error instanceof AppError) {
-      return c.json({
-        error: error.message,
-        code: error.code,
-        requestId
-      }, error.status);
-    }
-    return c.redirect('/login');
-  }
-};
 
 // Enhanced error templates with better error display
 export const errorTemplates = {
