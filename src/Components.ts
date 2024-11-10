@@ -576,6 +576,14 @@ const loginForm = `
 </div>
 `;
 
+// Home template component
+const homeTemplate = `
+<div class="home-container">
+  <h1>Welcome to RusstCorp</h1>
+  <p>Your one-stop solution for all your needs.</p>
+</div>
+`;
+
 // Enhanced templates object
 export const templates = {
   login: () => {
@@ -588,5 +596,17 @@ export const templates = {
       log('ERROR', 'Failed to render login template', { error });
       throw error;
     }
-  }
-}
+  },
+  home: () => {
+    try {
+      log('DEBUG', 'Rendering home template');
+      const html = baseLayout('Home', homeTemplate);
+      log('DEBUG', 'Home template rendered successfully');
+      return html;
+    } catch (error) {
+      log('ERROR', 'Failed to render home template', { error });
+      throw error;
+    }
+  },
+  // ...other templates...
+};
