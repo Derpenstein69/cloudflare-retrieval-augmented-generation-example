@@ -1,8 +1,13 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
-import { validateEmail, hashPassword, generateSecureKey, safeExecute } from './utils';
+import {
+  validateEmail,
+  hashPassword,
+  generateSecureKey,
+  safeExecute,
+  SessionDO
+} from './shared';
 import { templates } from './Components';
-import { SessionDO } from './session';
 import type { Env } from './types';
 
 // Consolidated error responses

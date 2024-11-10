@@ -1,4 +1,4 @@
-import { baseLayout } from './shared';
+import { baseLayout, sharedStyles, themeScript } from './shared';
 
 // Shared styles and theme script that was previously in shared.ts
 export const sharedStyles = `

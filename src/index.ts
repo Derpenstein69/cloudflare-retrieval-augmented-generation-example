@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import routes from './routes'
-import { errorHandler, authMiddleware, validateEnv } from './shared'
+import { errorHandler, authMiddleware, validateEnv, SessionDO } from './shared'
 import { templates } from './Components'
 import type { Env } from './types'
 
@@ -74,5 +74,5 @@ app.get('/query', async (c) => {
 });
 
 export { RAGWorkflow } from './workflows/rag'
-export { SessionDO } from './session'
+export { SessionDO }
 export default app
