@@ -77,23 +77,24 @@ routes.post('/login', async (c) => {
   try {
     const { email, password } = await c.req.json();
     if (!email || !password || !validateEmail(email)) {
-      return apiResponse({ error: 'Invalid credentials' }, 400);
+      return c.json({ error: 'Invalid credentials' }, 400);
     }
 
     const userData = await c.env.USERS_KV.get(email);
-    if (!userData) return apiResponse({ error: 'Invalid credentials' }, 401);
+    if (!userData) return c.json({ error: 'Invalid credentials' }, 401);
 
     const user = JSON.parse(userData);
     const hashedPassword = await hashPassword(password);
 
     if (user.password !== hashedPassword) {
-      return apiResponse({ error: 'Invalid credentials' }, 401);
+      return c.json({ error: 'Invalid credentials' }, 401);
     }
 
     // Generate and store session
     const sessionToken = generateSecureKey(32);
-    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
-    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+    const sessionDO = c.env.SESSIONS_DO.get(
+      SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken)
+    );
 
     const saveResponse = await sessionDO.fetch(new Request('https://dummy/save', {
       method: 'POST',
@@ -113,16 +114,10 @@ routes.post('/login', async (c) => {
       maxAge: 60 * 60 * 24 // 24 hours
     });
 
-    return apiResponse({
-      success: true,
-      user: {
-        email: user.email,
-        displayName: user.displayName
-      }
-    });
+    return c.json({ success: true });
   } catch (error) {
     console.error('Login error:', error);
-    return apiResponse({ error: 'Login failed' }, 500);
+    return c.json({ error: error.message || 'Login failed' }, 500);
   }
 });
 

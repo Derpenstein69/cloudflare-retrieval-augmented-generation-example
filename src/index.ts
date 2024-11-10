@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import routes from './routes'
 import { errorHandler, authMiddleware, validateEnv, SessionDO } from './shared'
-import { templates } from './Components'
+import { templates, renderTemplate } from './Components'
 import type { Env } from './types'
 
 const app = new Hono<{ Bindings: Env }>()
@@ -23,9 +23,9 @@ app.use('*', async (c, next) => {
   }
 });
 
-// Public routes
-app.get('/login', (c) => c.html(templates.login()))
-app.get('/signup', (c) => c.html(templates.signup()))
+// Public routes - Fix the template rendering
+app.get('/login', (c) => renderTemplate(templates.login))
+app.get('/signup', (c) => renderTemplate(templates.signup))
 
 // Protected routes
 app.use('*', authMiddleware)

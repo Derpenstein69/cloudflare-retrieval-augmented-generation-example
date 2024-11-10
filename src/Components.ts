@@ -412,22 +412,25 @@ export const eventHandlers = `
     async handleLogin(event) {
       event.preventDefault();
       try {
-        state.setAuthStatus(AuthStatus.Loading);
         const form = event.target;
-        const { email, password } = Object.fromEntries(new FormData(form));
-
-        const response = await api.login(email, password);
-        if (response.error) throw new Error(response.error);
-
-        state.setAuthStatus(AuthStatus.Authenticated);
-        state.setUser(response.data.user);
-        appRouter.navigate('/');
-      } catch (error) {
-        state.setAuthStatus(AuthStatus.Unauthenticated, error.message);
-        state.addNotification({
-          type: NotificationType.Error,
-          message: 'Login failed: ' + error.message
+        const formData = new FormData(form);
+        const response = await fetch('/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(Object.fromEntries(formData))
         });
+
+        if (response.ok) {
+          window.location.href = '/';
+        } else {
+          const data = await response.json();
+          throw new Error(data.error || 'Login failed');
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        alert(error.message);
       }
     },
 
@@ -793,13 +796,20 @@ export const templates = {
   login: () => pageLayout('Login', `
     <div class="auth-container">
       <h1>Login</h1>
-      <form id="login-form" method="POST" action="/auth/login">
+      <form id="login-form" onsubmit="EventHandlers.handleLogin(event)">
         <input type="email" name="email" placeholder="Email" required>
         <input type="password" name="password" placeholder="Password" required>
         <button type="submit">Login</button>
       </form>
       <p>Don't have an account? <a href="/signup">Sign up</a></p>
     </div>
+    <script>
+      // Initialize state
+      document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('login-form');
+        form.addEventListener('submit', EventHandlers.handleLogin.bind(EventHandlers));
+      });
+    </script>
   `, { showSidebar: false, showMenuToggle: false }),
 
   signup: () => pageLayout('Sign Up', `
