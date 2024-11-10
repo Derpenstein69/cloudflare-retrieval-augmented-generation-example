@@ -1,66 +1,21 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import routes, { authMiddleware, validateEnv } from './routes'
-import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
-import {
-  homeTemplate,
-  loginTemplate,
-  signupTemplate
-} from './Components'
+import routes, { authMiddleware } from './routes'
+import { templates } from './Components'
 import type { Env } from './types'
+import { errorHandler, notFoundHandler, validateEnv } from './middleware'
 
 const app = new Hono<{ Bindings: Env }>()
 
-// Add error handling middleware
-app.onError((err, c) => {
-  console.error('Application error:', err);
-  // Log the stack trace for better debugging
-  if (err instanceof Error) {
-    console.error('Stack trace:', err.stack);
-  }
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Error - RusstCorp</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-      </head>
-      <body>
-        <h1>Something went wrong</h1>
-        <p>We're sorry, but something went wrong. Please try again later.</p>
-        <a href="/">Return to Home</a>
-        ${process.env.NODE_ENV === 'development' ? `<pre>${err}</pre>` : ''}
-      </body>
-    </html>
-  `, 500);
-});
-
-// Add not found handler
-app.notFound((c) => {
-  console.log('404 Not Found:', c.req.path);
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>404 Not Found - RusstCorp</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-      </head>
-      <body>
-        <h1>Page Not Found</h1>
-        <p>The page you're looking for doesn't exist.</p>
-        <a href="/">Return to Home</a>
-      </body>
-    </html>
-  `, 404);
-});
-
+// Global middleware
 app.use(cors())
+app.use('*', errorHandler)
+app.notFound(notFoundHandler)
 
-// Environment validation middleware
+// Environment validation
 app.use('*', async (c, next) => {
   try {
     validateEnv(c.env);
-    console.log('Environment bindings:', c.env); // Log environment bindings
     await next();
   } catch (err) {
     console.error('Environment error:', err);
@@ -68,26 +23,13 @@ app.use('*', async (c, next) => {
   }
 });
 
-// Public routes (no auth required)
-app.get('/login', async (c) => c.html(loginTemplate()))
-app.get('/signup', async (c) => c.html(signupTemplate()))
-app.route('/auth', routes.authRoutes)
+// Public routes
+app.get('/login', (c) => c.html(templates.login()))
+app.get('/signup', (c) => c.html(templates.signup()))
 
-// Create a new Hono instance for protected routes
-const protectedRoutes = new Hono<{ Bindings: Env }>()
-
-// Add auth middleware to all protected routes
-protectedRoutes.use('*', authMiddleware)
-
-// Protected routes
-protectedRoutes.get('/', (c) => c.html(homeTemplate()))
-protectedRoutes.route('/notes', routes.notesRoutes) // Ensure notes route is mounted
-protectedRoutes.route('/profile', routes.profileRoutes) // Ensure profile route is mounted
-protectedRoutes.route('/memory', routes.memoryRoutes) // Ensure memory route is mounted
-protectedRoutes.route('/settings', routes.settingsRoutes)
-
-// Mount protected routes
-app.route('', protectedRoutes)
+// Mount all routes with auth middleware
+app.use('*', authMiddleware)
+app.route('/', routes)
 
 app.get('/query', async (c) => {
   const question = c.req.query('text') || "What is the square root of 9?"

@@ -1,17 +1,21 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
-import {
-  profileTemplate,
-  memoryTemplate,
-  notesTemplate,
-  loginTemplate,
-  signupTemplate,
-  settingsTemplate,
-  homeTemplate
-} from './Components';
-import { SessionDO } from './session';
-import { hashPassword, generateSecureKey } from './utils';
+import { validateEmail, hashPassword, generateSecureKey, safeExecute } from './utils';
 import type { Env } from './types';
+import { templates } from './Components';
+
+// Consolidated error responses
+const errors = {
+  auth: {
+    invalidCreds: { error: 'Invalid credentials', status: 401 },
+    notFound: { error: 'User not found', status: 404 },
+    missingFields: { error: 'Required fields missing', status: 400 },
+    passwordMismatch: { error: 'Passwords do not match', status: 400 },
+    passwordLength: { error: 'Password must be at least 8 characters', status: 400 },
+    emailExists: { error: 'Email already registered', status: 400 },
+    noSession: { error: 'No active session', status: 401 }
+  }
+};
 
 // Add environment validation function
 export function validateEnv(env: Env) {
@@ -22,109 +26,77 @@ export function validateEnv(env: Env) {
   }
 }
 
-// Auth middleware
+// Auth middleware with improved error handling
 export const authMiddleware = async (c: any, next: () => Promise<any>) => {
-  const sessionToken = getCookie(c, 'session');
-  if (!sessionToken) {
+  try {
+    const sessionToken = getCookie(c, 'session');
+    if (!sessionToken) throw new Error('No session token');
+
+    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+    const response = await sessionDO.fetch(new Request('https://dummy/get'));
+
+    if (!response.ok) throw new Error('Invalid session');
+
+    const userEmail = await response.text();
+    if (!userEmail) throw new Error('No user email');
+
+    c.set('userEmail', userEmail);
+    await next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
     return c.redirect('/login');
   }
-
-  const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
-  const sessionDO = c.env.SESSIONS_DO.get(sessionId);
-  const response = await sessionDO.fetch(new Request('https://dummy/get'));
-
-  if (!response.ok) {
-    return c.redirect('/login');
-  }
-
-  const userEmail = await response.text();
-  if (!userEmail) {
-    return c.redirect('/login');
-  }
-
-  c.set('userEmail', userEmail);
-  await next();
 };
 
 const routes = new Hono<{ Bindings: Env }>();
 
-// Authentication middleware
-const requireAuth = async (c: any, next: () => Promise<any>) => {
-  const sessionToken = getCookie(c, 'session');
-  if (!sessionToken) {
-    return c.redirect('/login');
-  }
-
-  const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
-  const sessionDO = c.env.SESSIONS_DO.get(sessionId);
-  const response = await sessionDO.fetch(new Request('https://dummy/get'));
-
-  if (!response.ok) {
-    return c.redirect('/login');
-  }
-
-  const userEmail = await response.text();
-  if (!userEmail) {
-    return c.redirect('/login');
-  }
-
-  c.set('userEmail', userEmail);
-  await next();
-};
-
 // Auth Routes
-routes.get('/login', (c) => c.html(loginTemplate()));
-routes.get('/signup', (c) => c.html(signupTemplate()));
+routes.get('/login', (c) => c.html(templates.login()));
+routes.get('/signup', (c) => c.html(templates.signup()));
 
-routes.all('/login', async (c) => {
-  if (c.req.method !== 'POST') {
-    return c.text('Method not allowed', 405);
-  }
-  try {
-    const formData = await c.req.parseBody();
-    const { email, password } = formData;
+routes.post('/login', async (c) => {
+  return await safeExecute(async () => {
+    const { email, password } = await c.req.json();
 
-    if (!email || !password) {
-      console.log('Email or password missing');
-      return c.json({ error: 'Email and password are required' }, 400);
+    if (!email || !password || !validateEmail(email)) {
+      return c.json(errors.auth.missingFields);
     }
 
     const userData = await c.env.USERS_KV.get(email);
-    if (!userData) {
-      console.log('Invalid credentials for email:', email);
-      return c.json({ error: 'Invalid credentials' }, 401);
-    }
+    if (!userData) return c.json(errors.auth.invalidCreds);
 
     const user = JSON.parse(userData);
-    const hashedPassword = await hashPassword(password as string);
+    const hashedPassword = await hashPassword(password);
 
     if (user.password !== hashedPassword) {
-      console.log('Invalid credentials for email:', email);
-      return c.json({ error: 'Invalid credentials' }, 401);
+      return c.json(errors.auth.invalidCreds);
     }
 
     const sessionToken = generateSecureKey(32);
-    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
-    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
-    await sessionDO.fetch(new Request('https://dummy/save', {
-      method: 'POST',
-      body: email as string
-    }));
-
-    setCookie(c, 'session', sessionToken, {
-      httpOnly: true,
-      secure: true,
-      path: '/',
-      sameSite: 'Strict',
-      maxAge: 60 * 60 * 24
-    });
+    await createSession(c, email, sessionToken);
 
     return c.redirect('/');
-  } catch (error) {
-    console.error('Login error:', error);
-    return c.json({ error: 'Internal server error' }, 500);
-  }
+  }, 'Login failed');
 });
+
+// Helper function to create session
+async function createSession(c: any, email: string, token: string) {
+  const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, token);
+  const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+  await sessionDO.fetch(new Request('https://dummy/save', {
+    method: 'POST',
+    body: email
+  }));
+
+  setCookie(c, 'session', token, {
+    httpOnly: true,
+    secure: true,
+    path: '/',
+    sameSite: 'Strict',
+    maxAge: 60 * 60 * 24
+  });
+}
 
 routes.all('/signup', async (c) => {
   if (c.req.method !== 'POST') {
@@ -189,7 +161,7 @@ routes.post('/logout', async (c) => {
 });
 
 // Profile Routes
-routes.get('/profile', requireAuth, async (c) => {
+routes.get('/profile', authMiddleware, async (c) => {
   const userEmail = c.get('userEmail');
   const userData = await c.env.USERS_KV.get(userEmail);
   if (!userData) {
@@ -198,7 +170,7 @@ routes.get('/profile', requireAuth, async (c) => {
   return c.html(profileTemplate());
 });
 
-routes.post('/profile', requireAuth, async (c) => {
+routes.post('/profile', authMiddleware, async (c) => {
   const userEmail = c.get('userEmail');
   const userData = await c.env.USERS_KV.get(userEmail);
   const user = JSON.parse(userData);
@@ -212,7 +184,7 @@ routes.post('/profile', requireAuth, async (c) => {
 });
 
 // Settings Routes
-routes.get('/settings', requireAuth, async (c) => {
+routes.get('/settings', authMiddleware, async (c) => {
   const userEmail = c.get('userEmail');
   const userData = await c.env.USERS_KV.get(userEmail);
   if (!userData) {
@@ -221,7 +193,7 @@ routes.get('/settings', requireAuth, async (c) => {
   return c.html(settingsTemplate());
 });
 
-routes.post('/settings', requireAuth, async (c) => {
+routes.post('/settings', authMiddleware, async (c) => {
   const userEmail = c.get('userEmail');
   const { current_password, new_password } = await c.req.json();
   const userData = await c.env.USERS_KV.get(userEmail);
@@ -242,7 +214,7 @@ routes.post('/settings', requireAuth, async (c) => {
 });
 
 // Notes Routes
-routes.get('/notes', requireAuth, async (c) => {
+routes.get('/notes', authMiddleware, async (c) => {
   const userEmail = c.get('userEmail');
   try {
     const query = `SELECT * FROM notes WHERE userEmail = ?`
@@ -254,7 +226,7 @@ routes.get('/notes', requireAuth, async (c) => {
   }
 });
 
-routes.post('/notes', requireAuth, async (c) => {
+routes.post('/notes', authMiddleware, async (c) => {
   const userEmail = c.get('userEmail');
   const { text } = await c.req.json();
   try {
@@ -268,10 +240,10 @@ routes.post('/notes', requireAuth, async (c) => {
 });
 
 // Memory Routes
-routes.get('/memory', requireAuth, (c) => c.html(memoryTemplate()));
+routes.get('/memory', authMiddleware, (c) => c.html(memoryTemplate()));
 
 // Home Route
-routes.get('/', requireAuth, (c) => c.html(homeTemplate()));
+routes.get('/', authMiddleware, (c) => c.html(homeTemplate()));
 
 // Catch-all route
 routes.all('*', (c) => c.text('Not found', 404));
