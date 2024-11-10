@@ -1,16 +1,18 @@
 import { Context } from 'hono';
 
-import { JSDOM } from 'jsdom';
-
 // Sanitize Middleware
 const sanitizeHtml = (input: string): string => {
-  const dom = new JSDOM();
-  const element = dom.window.document.createElement('div');
-  element.innerText = input;
-  return element.innerHTML;
+  // Simple HTML sanitization using regex
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 };
 
-const sanitize = () => {
+// Sanitize input middleware
+export const sanitize = () => {
   return async (c: Context, next: () => Promise<void>) => {
     try {
       const body = await c.req.json();
@@ -29,7 +31,7 @@ const sanitize = () => {
 };
 
 // Validate Middleware
-const validate = (requiredFields: string[]) => {
+export const validate = (requiredFields: string[]) => {
   return async (c: Context, next: () => Promise<void>) => {
     try {
       const body = await c.req.json();
@@ -47,7 +49,7 @@ const validate = (requiredFields: string[]) => {
 };
 
 // Rate Limit Middleware
-const rateLimit = (limit: number = 100, windowMs: number = 60000) => {
+export const rateLimit = (limit: number = 100, windowMs: number = 60000) => {
   const cache = new Map<string, { count: number; resetTime: number }>();
 
   return async (c: Context, next: () => Promise<void>) => {
@@ -76,5 +78,3 @@ const rateLimit = (limit: number = 100, windowMs: number = 60000) => {
     }
   };
 };
-
-export { sanitize, validate, rateLimit };
