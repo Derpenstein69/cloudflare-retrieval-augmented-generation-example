@@ -579,8 +579,20 @@ const loginForm = `
 // Home template component
 const homeTemplate = `
 <div class="home-container">
-  <h1>Welcome to RusstCorp</h1>
-  <p>Your one-stop solution for all your needs.</p>
+  <header class="action-bar">
+    <div class="home-button">Home</div>
+    <div class="title">RusstCorp</div>
+    <div class="user-icon">User</div>
+  </header>
+  <aside class="sidebar">
+    <div class="sidebar-item">Dashboard</div>
+    <div class="sidebar-item">Settings</div>
+    <div class="sidebar-item">Logout</div>
+  </aside>
+  <main class="content">
+    <h1>Welcome to RusstCorp</h1>
+    <p>Your one-stop solution for all your needs.</p>
+  </main>
 </div>
 `;
 
