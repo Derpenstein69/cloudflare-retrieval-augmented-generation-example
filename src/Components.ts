@@ -529,7 +529,7 @@ export function validateEnv(env: Env): void {
 const loginForm = `
 <div class="auth-form">
   <h1>Login</h1>
-  <form id="loginForm" hx-post="/login" hx-swap="outerHTML">
+  <form id="loginForm">
     <div class="form-group">
       <label for="email">Email</label>
       <input type="email" id="email" name="email" required>
@@ -540,7 +540,38 @@ const loginForm = `
     </div>
     <button type="submit">Login</button>
   </form>
-  <p><a href="/signup">Need an account? Sign up</a></p>
+  <p>Don't have an account? <a href="/signup">Sign up</a></p>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const errorContainer = document.getElementById('error-messages');
+
+      try {
+        const response = await fetch('/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: form.email.value,
+            password: form.password.value
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          window.location.href = '/';
+        } else {
+          throw new Error(data.error || 'Login failed');
+        }
+      } catch (error) {
+        errorContainer.textContent = error.message;
+        errorContainer.style.display = 'block';
+      }
+    });
+  </script>
 </div>
 `;
 
