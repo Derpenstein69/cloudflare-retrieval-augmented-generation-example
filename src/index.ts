@@ -33,6 +33,10 @@ class Metrics {
 
 const app = new Hono<{ Bindings: Env }>();
 
+// Public routes (before auth middleware)
+app.get('/login', (c) => c.html(renderTemplate(templates.login)));
+app.get('/signup', (c) => c.html(renderTemplate(templates.signup)));
+
 // Improved CORS configuration
 app.use(cors({
   origin: ['http://localhost:8787', 'https://yourdomain.com'],

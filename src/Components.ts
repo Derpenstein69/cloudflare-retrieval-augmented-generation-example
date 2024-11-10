@@ -801,50 +801,42 @@ export const templates = {
     <div class="auth-container">
       <h1>Login</h1>
       <div id="error-messages" class="error-container" style="display: none;"></div>
-      <form id="login-form" onsubmit="return EventHandlers.handleLogin(event)">
-        <input type="email" name="email" placeholder="Email" required>
-        <input type="password" name="password" placeholder="Password" required>
+      <form id="login-form" method="POST">
+        <div class="form-group">
+          <input type="email" name="email" placeholder="Email" required>
+        </div>
+        <div class="form-group">
+          <input type="password" name="password" placeholder="Password" required>
+        </div>
         <button type="submit">Login</button>
       </form>
       <p>Don't have an account? <a href="/signup">Sign up</a></p>
     </div>
     <script>
-      document.addEventListener('DOMContentLoaded', () => {
-        console.log('Login page loaded');
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const errorContainer = document.getElementById('error-messages');
+
         try {
-          const form = document.getElementById('login-form');
-          const errorContainer = document.getElementById('error-messages');
-
-          form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            errorContainer.style.display = 'none';
-            errorContainer.textContent = '';
-
-            try {
-              const formData = new FormData(form);
-              const response = await fetch('/login', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(Object.fromEntries(formData))
-              });
-
-              const data = await response.json();
-
-              if (response.ok) {
-                window.location.href = '/';
-              } else {
-                throw new Error(data.error || 'Login failed');
-              }
-            } catch (error) {
-              console.error('Login error:', error);
-              errorContainer.textContent = error.message;
-              errorContainer.style.display = 'block';
-            }
+          const response = await fetch('/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(Object.fromEntries(new FormData(form))),
           });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            window.location.href = '/';
+          } else {
+            throw new Error(data.error || 'Login failed');
+          }
         } catch (error) {
-          console.error('Login page initialization error:', error);
+          errorContainer.textContent = error.message;
+          errorContainer.style.display = 'block';
         }
       });
     </script>
