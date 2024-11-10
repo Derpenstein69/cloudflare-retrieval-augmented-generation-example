@@ -77,24 +77,52 @@ routes.post('/login', async (c) => {
   try {
     const { email, password } = await c.req.json();
     if (!email || !password || !validateEmail(email)) {
-      return c.json({ error: 'Invalid credentials' }, 400);
+      return apiResponse({ error: 'Invalid credentials' }, 400);
     }
 
     const userData = await c.env.USERS_KV.get(email);
-    if (!userData) return c.json({ error: 'Invalid credentials' }, 401);
+    if (!userData) return apiResponse({ error: 'Invalid credentials' }, 401);
 
     const user = JSON.parse(userData);
     const hashedPassword = await hashPassword(password);
 
     if (user.password !== hashedPassword) {
-      return c.json({ error: 'Invalid credentials' }, 401);
+      return apiResponse({ error: 'Invalid credentials' }, 401);
     }
 
+    // Generate and store session
     const sessionToken = generateSecureKey(32);
-    await createSession(c, email, sessionToken);
-    return apiResponse({ success: true });
+    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+
+    const saveResponse = await sessionDO.fetch(new Request('https://dummy/save', {
+      method: 'POST',
+      body: email
+    }));
+
+    if (!saveResponse.ok) {
+      throw new Error('Failed to create session');
+    }
+
+    // Set cookie with session token
+    setCookie(c, 'session', sessionToken, {
+      httpOnly: true,
+      secure: true,
+      path: '/',
+      sameSite: 'Strict',
+      maxAge: 60 * 60 * 24 // 24 hours
+    });
+
+    return apiResponse({
+      success: true,
+      user: {
+        email: user.email,
+        displayName: user.displayName
+      }
+    });
   } catch (error) {
-    return apiResponse({ error: 'Login failed' }, 401);
+    console.error('Login error:', error);
+    return apiResponse({ error: 'Login failed' }, 500);
   }
 });
 

@@ -68,8 +68,6 @@ export class SessionDO {
           return await this.handleGet();
         case '/delete':
           return await this.handleDelete();
-        case '/refresh':
-          return await this.handleRefresh();
         default:
           return new Response('Not Found', { status: 404 });
       }
@@ -86,8 +84,7 @@ export class SessionDO {
 
       await Promise.all([
         this.state.storage.put('email', email),
-        this.state.storage.put('expires', expires),
-        this.state.storage.put('created', Date.now())
+        this.state.storage.put('expires', expires)
       ]);
 
       return new Response('OK');
@@ -113,6 +110,8 @@ export class SessionDO {
         return new Response('Session expired', { status: 401 });
       }
 
+      // Refresh session timeout on successful get
+      await this.state.storage.put('expires', Date.now() + SessionDO.SESSION_TIMEOUT);
       return new Response(email.toString());
     } catch (error) {
       console.error('Session get error:', error);
@@ -126,23 +125,6 @@ export class SessionDO {
       return new Response('OK');
     } catch (error) {
       console.error('Session delete error:', error);
-      throw error;
-    }
-  }
-
-  private async handleRefresh(): Promise<Response> {
-    try {
-      const email = await this.state.storage.get('email');
-      if (!email) {
-        return new Response('Session not found', { status: 404 });
-      }
-
-      const expires = Date.now() + SessionDO.SESSION_TIMEOUT;
-      await this.state.storage.put('expires', expires);
-
-      return new Response('OK');
-    } catch (error) {
-      console.error('Session refresh error:', error);
       throw error;
     }
   }
