@@ -12,6 +12,7 @@ import {
   UIState,
   AuthState
 } from './types';
+import { Logger } from './shared';
 // Theme configuration
 const themeConfig = {
   light: {
@@ -221,6 +222,7 @@ export const sharedStyles = `
 `;
 
 // Base layout template
+// Base components - keep these at the top level only
 const baseLayout = (title: string, content: string) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -229,6 +231,7 @@ const baseLayout = (title: string, content: string) => `
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title} | RusstCorp</title>
   <link rel="stylesheet" href="/styles.css">
+  ${sharedStyles}
 </head>
 <body>
   <div class="container">
@@ -238,69 +241,47 @@ const baseLayout = (title: string, content: string) => `
 </html>
 `;
 
-// Login form component
-const loginForm = `
-<div class="auth-form">
-  <h1>Login</h1>
-  <form id="loginForm" hx-post="/login" hx-swap="outerHTML">
-    <div class="form-group">
-      <label for="email">Email</label>
-      <input type="email" id="email" name="email" required>
-    </div>
-    <div class="form-group">
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password" required>
-    </div>
-    <button type="submit">Login</button>
-  </form>
-  <p><a href="/signup">Need an account? Sign up</a></p>
-</div>
-`;
-
-// Enhanced templates object
-export const templates = {
-  login: () => {
-    try {
-      Logger.log('DEBUG', 'Rendering login template');
-      const html = baseLayout('Login', loginForm);
-      Logger.log('DEBUG', 'Login template rendered successfully');
-      return html;
-    } catch (error) {
-      Logger.log('ERROR', 'Failed to render login template', { error });
-      throw error;
-    }
-  },
-  // ... other templates
-};
-
-// Error templates
-export const errorTemplates = {
-  serverError: (error: Error) => baseLayout('Error', `
-    <div class="error-container">
-      <h1>Server Error</h1>
-      <p>${error.message}</p>
-      <a href="/">Return Home</a>
-    </div>
-  `),
-  notFound: () => baseLayout('Not Found', `
-    <div class="error-container">
-      <h1>Page Not Found</h1>
-      <p>The requested page could not be found.</p>
-      <a href="/">Return Home</a>
-    </div>
-  `)
-};
-
-// Enhanced render utility
-export function renderTemplate(template: () => string): string {
+// Safe logging function
+const log = (level: 'DEBUG' | 'INFO' | 'ERROR' | 'WARN', message: string, data?: any) => {
   try {
-    Logger.log('DEBUG', 'Starting template render');
+    Logger.log(level, message, data);
+  } catch {
+    console.log(`${level}: ${message}`, data);
+  }
+};
+
+// Enhanced render utility with better error handling and logging
+export function renderTemplate(template: () => string): string {
+  const renderStart = performance.now();
+  const requestId = crypto.randomUUID();
+
+  try {
+    log('DEBUG', 'Template render started', {
+      requestId,
+      templateName: template.name || 'anonymous'
+    });
+
     const html = template();
-    Logger.log('DEBUG', 'Template render complete');
+    const renderTime = performance.now() - renderStart;
+
+    log('DEBUG', 'Template render completed', {
+      requestId,
+      renderTimeMs: renderTime.toFixed(2)
+    });
+
     return html;
   } catch (error) {
-    Logger.log('ERROR', 'Template render failed', { error });
-    return errorTemplates.serverError(error as Error);
+    const renderTime = performance.now() - renderStart;
+    log('ERROR', 'Template render failed', {
+      requestId,
+      renderTimeMs: renderTime.toFixed(2),
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    return errorTemplates.serverError(
+      error instanceof Error ? error : new Error('Unknown render error')
+    );
   }
 }
 
@@ -784,90 +765,6 @@ export const sharedStyles = `
   </style>
 `;
 
-// Base layout template
-const baseLayout = (title: string, content: string) => `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} | RusstCorp</title>
-  <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-  <div class="container">
-    ${content}
-  </div>
-</body>
-</html>
-`;
-
-// Login form component
-const loginForm = `
-<div class="auth-form">
-  <h1>Login</h1>
-  <form id="loginForm" hx-post="/login" hx-swap="outerHTML">
-    <div class="form-group">
-      <label for="email">Email</label>
-      <input type="email" id="email" name="email" required>
-    </div>
-    <div class="form-group">
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password" required>
-    </div>
-    <button type="submit">Login</button>
-  </form>
-  <p><a href="/signup">Need an account? Sign up</a></p>
-</div>
-`;
-
-// Enhanced templates object
-export const templates = {
-  login: () => {
-    try {
-      Logger.log('DEBUG', 'Rendering login template');
-      const html = baseLayout('Login', loginForm);
-      Logger.log('DEBUG', 'Login template rendered successfully');
-      return html;
-    } catch (error) {
-      Logger.log('ERROR', 'Failed to render login template', { error });
-      throw error;
-    }
-  },
-  // ... other templates
-};
-
-// Error templates
-export const errorTemplates = {
-  serverError: (error: Error) => baseLayout('Error', `
-    <div class="error-container">
-      <h1>Server Error</h1>
-      <p>${error.message}</p>
-      <a href="/">Return Home</a>
-    </div>
-  `),
-  notFound: () => baseLayout('Not Found', `
-    <div class="error-container">
-      <h1>Page Not Found</h1>
-      <p>The requested page could not be found.</p>
-      <a href="/">Return Home</a>
-    </div>
-  `)
-};
-
-// Enhanced render utility
-export function renderTemplate(template: () => string): string {
-  try {
-    Logger.log('DEBUG', 'Starting template render');
-    const html = template();
-    Logger.log('DEBUG', 'Template render complete');
-    return html;
-  } catch (error) {
-    Logger.log('ERROR', 'Template render failed', { error });
-    return errorTemplates.serverError(error as Error);
-  }
-}
-
 // ===== SECURITY UTILS =====
 export function validatePasswordStrength(password: string): { valid: boolean; reason?: string } {
   const minLength = 8;
@@ -1169,41 +1066,6 @@ export const errorTemplates = {
   `)
 };
 
-// Enhanced render utility with better error handling and logging
-export function renderTemplate(template: () => string): string {
-  const renderStart = performance.now();
-  const requestId = crypto.randomUUID();
-
-  try {
-    Logger.log('DEBUG', 'Template render started', {
-      requestId,
-      templateName: template.name || 'anonymous'
-    });
-
-    const html = template();
-    const renderTime = performance.now() - renderStart;
-
-    Logger.log('DEBUG', 'Template render completed', {
-      requestId,
-      renderTimeMs: renderTime.toFixed(2)
-    });
-
-    return html;
-  } catch (error) {
-    const renderTime = performance.now() - renderStart;
-    Logger.log('ERROR', 'Template render failed', {
-      requestId,
-      renderTimeMs: renderTime.toFixed(2),
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
-
-    return errorTemplates.serverError(
-      error instanceof Error ? error : new Error('Unknown render error')
-    );
-  }
-}
-
 // ===== ENVIRONMENT =====
 export function validateEnv(env: Env): void {
   const required = ['DATABASE', 'USERS_KV', 'SESSIONS_DO', 'AI', 'VECTOR_INDEX'];
@@ -1216,24 +1078,6 @@ export function validateEnv(env: Env): void {
     );
   }
 }
-
-// Base layout template
-const baseLayout = (title: string, content: string) => `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} | RusstCorp</title>
-  <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-  <div class="container">
-    ${content}
-  </div>
-</body>
-</html>
-`;
 
 // Login form component
 const loginForm = `
@@ -1267,36 +1111,4 @@ export const templates = {
       throw error;
     }
   },
-  // ... other templates
 };
-
-// Enhanced error templates
-export const errorTemplates = {
-  serverError: (error: Error) => baseLayout('Error', `
-    <div class="error-container">
-      <h1>Server Error</h1>
-      <p>${error.message}</p>
-      <a href="/">Return Home</a>
-    </div>
-  `),
-  notFound: () => baseLayout('Not Found', `
-    <div class="error-container">
-      <h1>Page Not Found</h1>
-      <p>The requested page could not be found.</p>
-      <a href="/">Return Home</a>
-    </div>
-  `)
-};
-
-// Enhanced render utility
-export function renderTemplate(template: () => string): string {
-  try {
-    Logger.log('DEBUG', 'Starting template render');
-    const html = template();
-    Logger.log('DEBUG', 'Template render complete');
-    return html;
-  } catch (error) {
-    Logger.log('ERROR', 'Template render failed', { error });
-    return errorTemplates.serverError(error as Error);
-  }
-}
