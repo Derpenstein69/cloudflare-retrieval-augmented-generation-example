@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { authMiddleware, validateEnv } from './auth'
-import routes from './routes'
+import routes, { authMiddleware, validateEnv } from './routes'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import {
   homeTemplate,

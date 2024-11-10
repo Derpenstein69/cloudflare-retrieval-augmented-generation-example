@@ -13,6 +13,39 @@ import { SessionDO } from './session';
 import { hashPassword, generateSecureKey } from './utils';
 import type { Env } from './types';
 
+// Add environment validation function
+export function validateEnv(env: Env) {
+  const required = ['DATABASE', 'USERS_KV', 'SESSIONS_DO', 'AI', 'VECTOR_INDEX'];
+  const missing = required.filter(key => !(key in env));
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+}
+
+// Auth middleware
+export const authMiddleware = async (c: any, next: () => Promise<any>) => {
+  const sessionToken = getCookie(c, 'session');
+  if (!sessionToken) {
+    return c.redirect('/login');
+  }
+
+  const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+  const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+  const response = await sessionDO.fetch(new Request('https://dummy/get'));
+
+  if (!response.ok) {
+    return c.redirect('/login');
+  }
+
+  const userEmail = await response.text();
+  if (!userEmail) {
+    return c.redirect('/login');
+  }
+
+  c.set('userEmail', userEmail);
+  await next();
+};
+
 const routes = new Hono<{ Bindings: Env }>();
 
 // Authentication middleware
