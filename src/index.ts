@@ -3,9 +3,11 @@ import { cors } from 'hono/cors'
 import { authMiddleware, validateEnv } from './auth'
 import routes from './routes'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
-import { homeTemplate } from './components/home'
-import { loginTemplate } from './components/login'
-import { signupTemplate } from './components/signup'
+import {
+  homeTemplate,
+  loginTemplate,
+  signupTemplate
+} from './Components'
 import type { Env } from './types'
 
 const app = new Hono<{ Bindings: Env }>()

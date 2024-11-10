@@ -1,14 +1,3 @@
-// Export all components from a single file
-export {
-  loginTemplate,
-  signupTemplate,
-  homeTemplate,
-  profileTemplate,
-  settingsTemplate,
-  notesTemplate,
-  memoryTemplate
-};
-
 // Shared styles and theme script that was previously in shared.ts
 export const sharedStyles = `
   <style>
