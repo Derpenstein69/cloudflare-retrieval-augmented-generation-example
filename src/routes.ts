@@ -36,7 +36,6 @@ export const authMiddleware = async (c: any, next: () => Promise<any>) => {
     if (!sessionToken) throw new Error('No session token');
 
     const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
-    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, token);
     const sessionDO = c.env.SESSIONS_DO.get(sessionId);
     const response = await sessionDO.fetch(new Request('https://dummy/get'));
 
@@ -81,98 +80,29 @@ function errorHandler(error: Error, context: string): Response {
 
 const routes = new Hono<{ Bindings: Env }>();
 
-// Apply global middleware
-routes.use('*', async (_, next) => {
-  try {
-    await next();
-  } catch (error) {
-    console.error('Global middleware error:', error);
-    return errorHandler(error as Error, 'process request');
-  }
+// Middleware order is important - most general first
+routes.use('*', async (c, next) => {
+  Logger.log('INFO', `Request: ${c.req.method} ${c.req.path}`, {
+    requestId: crypto.randomUUID()
+  });
+  await next();
 });
 
-// Error handling middleware
-routes.use('*', async (_, next) => {
-  try {
-    await next();
-  } catch (error) {
-    console.error('Global middleware error:', error);
-    return errorHandler(error as Error, 'process request');
-  }
-});
-
+// Rate limiting for API routes
 routes.use('/api/*', rateLimit());
 routes.use('/api/*', sanitize());
 
-// Password reset
-routes.post('/forgot-password', validate(['email']), async (c) => {
-  const { email } = await c.req.json();
-  try {
-    const user = await c.env.USERS_KV.get(email);
-    if (user) {
-      const resetToken = generateSecureKey(32);
-      await c.env.USERS_KV.put(`reset_${email}`, resetToken, { expirationTtl: 3600 });
-      // Send password reset email
-      // Implementation details...
-    }
-    return c.json({ success: true, message: 'If email exists, reset instructions have been sent' });
-  } catch (error) {
-    console.error('Password reset error:', error);
-    return errorHandler(error as Error, 'reset password');
+// Public routes first
+routes.get('/', async (c) => {
+  const sessionToken = getCookie(c, 'session');
+  if (sessionToken) {
+    return c.redirect('/dashboard');
   }
-});
-
-// Profile picture upload
-routes.post('/profile/picture', authMiddleware, async (c) => {
-  try {
-    const form = await c.req.formData();
-    const file = form.get('picture') as File;
-    if (!file) {
-      return c.json({ error: 'No file uploaded' }, 400);
-    }
-    // Upload to R2 storage
-    // Implementation details...
-    return c.json({ success: true, message: 'Profile picture updated' });
-  } catch (error) {
-    console.error('Profile picture upload error:', error);
-    return errorHandler(error as Error, 'upload profile picture');
-  }
-});
-
-// Account deletion
-routes.delete('/account', authMiddleware, async (c: any) => {
-  const userEmail = c.get('userEmail') as string;
-  try {
-    // Delete user data
-    await c.env.USERS_KV.delete(userEmail);
-    // Delete user notes
-    await c.env.DATABASE.prepare('DELETE FROM notes WHERE userEmail = ?').bind(userEmail).run();
-    // Delete sessions
-    // Implementation details...
-    return c.json({ success: true, message: 'Account deleted successfully' });
-  } catch (error) {
-    console.error('Account deletion error:', error);
-    return errorHandler(error as Error, 'delete account');
-  }
-});
-
-// Activity logging
-routes.get('/activity', authMiddleware, async (c: any) => {
-  const userEmail = c.get('userEmail') as string;
-  try {
-    const { results } = await c.env.DATABASE.prepare(
-      'SELECT * FROM activity_log WHERE userEmail = ? ORDER BY timestamp DESC LIMIT 50'
-    ).bind(userEmail).all();
-    return c.json(results);
-  } catch (error) {
-    console.error('Activity logging error:', error);
-    return errorHandler(error as Error, 'fetch activity log');
-  }
+  return c.html(renderTemplate(() => templates.home()));
 });
 
 routes.get('/login', async (c) => {
   const requestId = crypto.randomUUID();
-
   Logger.log('INFO', 'Login page requested', {
     requestId,
     url: c.req.url,
@@ -193,12 +123,74 @@ routes.get('/signup', (c) => {
   try {
     return c.html(renderTemplate(() => templates.signup()));
   } catch (error) {
-    console.error('Signup page rendering error:', error);
+    Logger.log('ERROR', 'Signup page render failed', { error });
     return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
   }
 });
 
-routes.post('/login', async (c) => {
+// Protected routes with auth middleware
+const protectedRoutes = new Hono<{ Bindings: Env }>();
+protectedRoutes.use('*', authMiddleware);
+
+protectedRoutes.get('/dashboard', (c) => {
+  try {
+    return c.html(renderTemplate(() => templates.dashboard()));
+  } catch (error) {
+    Logger.log('ERROR', 'Dashboard render failed', { error });
+    return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
+  }
+});
+
+protectedRoutes.get('/notes', async (c) => {
+  const userEmail = c.get('userEmail');
+  try {
+    const { results } = await c.env.DATABASE.prepare(
+      'SELECT * FROM notes WHERE userEmail = ? ORDER BY created_at DESC'
+    ).bind(userEmail).all();
+    return c.html(renderTemplate(() => templates.notes(results)));
+  } catch (error) {
+    Logger.log('ERROR', 'Notes page render failed', { error });
+    return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
+  }
+});
+
+protectedRoutes.get('/memory', async (c) => {
+  try {
+    return c.html(renderTemplate(() => templates.memory()));
+  } catch (error) {
+    Logger.log('ERROR', 'Memory page render failed', { error });
+    return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
+  }
+});
+
+protectedRoutes.get('/settings', async (c) => {
+  try {
+    return c.html(renderTemplate(() => templates.settings()));
+  } catch (error) {
+    Logger.log('ERROR', 'Settings page render failed', { error });
+    return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
+  }
+});
+
+protectedRoutes.get('/profile', async (c) => {
+  try {
+    const userEmail = c.get('userEmail');
+    const userData = await c.env.USERS_KV.get(userEmail);
+    if (!userData) {
+      throw new Error('User not found');
+    }
+    return c.html(renderTemplate(() => templates.profile(JSON.parse(userData))));
+  } catch (error) {
+    Logger.log('ERROR', 'Profile page render failed', { error });
+    return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
+  }
+});
+
+// Mount protected routes
+routes.route('/', protectedRoutes);
+
+// API routes
+routes.post('/api/login', async (c) => {
   try {
     const { email, password } = await c.req.json();
     if (!email || !password || !validateEmail(email)) {
@@ -207,11 +199,8 @@ routes.post('/login', async (c) => {
 
     const userData = await c.env.USERS_KV.get(email);
     if (!userData) return c.json({ error: 'Invalid credentials' }, 401);
-    // const user = JSON.parse(userData);
     const user = JSON.parse(userData);
-    JSON.parse(userData);
     if (!validatePassword(password, user.password)) {
-    if (!isPasswordValid) {
       return c.json({ error: 'Invalid credentials' }, 401);
     }
 
@@ -247,24 +236,7 @@ routes.post('/login', async (c) => {
   }
 });
 
-// async function createSession(c: any, email: string, token: string) {
-async function createSession(c: any, email: string, token: string) {
-  const sessionDO = c.env.SESSIONS_DO.get(sessionId);
-  await sessionDO.fetch(new Request('https://dummy/save', {
-    method: 'POST',
-    body: email
-  }));
-
-  setCookie(c, 'session', token, {
-    httpOnly: true,
-    secure: true,
-    path: '/',
-    sameSite: 'Strict',
-    maxAge: 60 * 60 * 24
-  });
-}
-
-routes.all('/signup', async (c) => {
+routes.post('/api/signup', async (c) => {
   if (c.req.method !== 'POST') {
     return c.text('Method not allowed', 405);
   }
@@ -316,126 +288,24 @@ routes.all('/signup', async (c) => {
   }
 });
 
-routes.post('/logout', async (c) => {
-  const sessionToken = getCookie(c, 'session');
-  if (!sessionToken) {
-    return c.json({ message: 'No active session' }, 400);
-  }
-
+routes.post('/api/logout', async (c) => {
   deleteCookie(c, 'session', { path: '/' });
-  return c.json({ message: 'Logged out successfully' });
+  return c.redirect('/');
 });
-
-// Profile Routes
-routes.get('/profile', authMiddleware, async (c: any) => {
-  const userEmail = c.get('userEmail') as string;
-  const userData = await c.env.USERS_KV.get(userEmail);
-  if (!userData) {
-    return c.json({ error: 'User not found' }, 404);
-  }
-  return c.html(renderTemplate(templates.profile));
-});
-
-routes.post('/profile', authMiddleware, async (c: any) => {
-  const userEmail = c.get('userEmail') as string;
-  const userData = await c.env.USERS_KV.get(userEmail) as string | null;
-  if (!userData) {
-    return c.json({ error: 'User not found' }, 404);
-  }
-  const user = JSON.parse(userData);
-  const { display_name, bio } = await c.req.json();
-
-  user.display_name = display_name;
-  user.bio = bio;
-
-  await c.env.USERS_KV.put(userEmail, JSON.stringify(user));
-  return c.json({ message: 'Profile updated successfully' });
-});
-
-// Settings Routes
-routes.get('/settings', authMiddleware, async (c: any) => {
-  const userEmail = c.get('userEmail') as string;
-  const userData = await c.env.USERS_KV.get(userEmail);
-  if (!userData) {
-    return c.json({ error: 'User not found' }, 404);
-  }
-  return c.html(renderTemplate(templates.settings));
-});
-
-routes.post('/settings', authMiddleware, async (c: any) => {
-  const userEmail = c.get('userEmail') as string;
-  const { current_password, new_password } = await c.req.json();
-  const userData = await c.env.USERS_KV.get(userEmail) as string | null;
-
-  if (userData && current_password && new_password) {
-    const hashedCurrentPassword = await hashPassword(current_password);
-    const user = JSON.parse(userData);
-
-    if (user.password !== hashedCurrentPassword) {
-      return c.json({ error: 'Invalid current password' }, 400);
-    }
-
-    const hashedNewPassword = await hashPassword(new_password);
-    user.password = hashedNewPassword;
-    await c.env.USERS_KV.put(userEmail, JSON.stringify(user));
-  }
-  return c.json({ message: 'Settings updated successfully' });
-});
-
-// Notes Routes
-routes.get('/notes', authMiddleware, async (c) => {
-  const userEmail = c.req.header('userEmail');
-  try {
-    const query = `SELECT * FROM notes WHERE userEmail = ?`
-    const { results } = await c.env.DATABASE.prepare(query).bind(userEmail).all()
-    return c.json(results || [])
-  } catch (error) {
-    console.error('Error fetching notes:', error);
-    return c.json({ error: 'Failed to fetch notes' }, 500);
-  }
-});
-
-routes.post('/notes', authMiddleware, async (c) => {
-  const userEmail = c.req.header('userEmail');
-  const { text } = await c.req.json();
-  try {
-    const query = `INSERT INTO notes (userEmail, text) VALUES (?, ?)`
-    await c.env.DATABASE.prepare(query).bind(userEmail, text).run()
-    return c.json({ success: true })
-  } catch (error) {
-    console.error('Error adding note:', error)
-    return c.json({ error: 'Failed to add note' }, 500)
-  }
-});
-
-// Memory Routes
-routes.get('/memory', authMiddleware, (c) => c.html(renderTemplate(templates.memory)));
-
-// Home Route
-routes.get('/', authMiddleware, (c) => {
-  try {
-    const html = renderTemplate(() => templates.home());
-    return c.html(html);
-  } catch (error) {
-    console.error('Home page rendering error:', error);
-    return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
-  }
-});
-
-// Catch-all route
-routes.all('*', (c) => c.text('Not found', 404));
 
 // Error handlers
-routes.notFound((c) => c.html(renderTemplate(errorTemplates.notFound)));
-routes.onError((err, c) => {
-  console.error('Route error:', err);
-  return c.html(renderTemplate(() => errorTemplates.serverError(err)));
+routes.notFound((c) => {
+  Logger.log('WARN', 'Page not found', { path: c.req.path });
+  return c.html(renderTemplate(errorTemplates.notFound));
 });
 
-// Add JSON content type helper for API routes
-routes.use('/api/*', async (c, next) => {
-  c.header('Content-Type', 'application/json');
-  await next();
+routes.onError((err, c) => {
+  Logger.log('ERROR', 'Application error', {
+    error: err.message,
+    stack: err.stack,
+    path: c.req.path
+  });
+  return c.html(renderTemplate(() => errorTemplates.serverError(err)));
 });
 
 export default routes;

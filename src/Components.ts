@@ -213,7 +213,7 @@ export const sharedStyles = `
 // Safe logging function that doesn't depend on external Logger
 // Removed unused backuplog function
 
-// Base layout template
+// Update the baseLayout template to include navigation
 const baseLayout = (title: string, content: string) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -222,9 +222,65 @@ const baseLayout = (title: string, content: string) => `
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title} | RusstCorp</title>
   <link rel="stylesheet" href="/styles.css">
-// Removed unused backuplog function
+  ${sharedStyles}
+  <script src="https://unpkg.com/htmx.org/dist/htmx.js"></script>
+</head>
+<body>
+  <header class="action-bar">
+    <div class="home-button" onclick="window.location.href='/'">Home</div>
+    <div class="title">${title}</div>
+    <div class="user-icon" onclick="toggleUserMenu()">
+      <span>☰</span>
+      <div class="menu" id="userMenu">
+        <div class="menu-item" onclick="window.location.href='/profile'">Profile</div>
+        <div class="menu-item" onclick="window.location.href='/settings'">Settings</div>
+        <div class="menu-item" onclick="logout()">Logout</div>
+      </div>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <div class="sidebar-item" onclick="window.location.href='/dashboard'">Dashboard</div>
+    <div class="sidebar-item" onclick="window.location.href='/notes'">Notes</div>
+    <div class="sidebar-item" onclick="window.location.href='/memory'">Memory</div>
+  </aside>
+
+  <main class="content">
     ${content}
-  </div>
+  </main>
+
+  <script>
+    // Navigation functions
+    function toggleUserMenu() {
+      const menu = document.getElementById('userMenu');
+      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function logout() {
+      fetch('/api/logout', { method: 'POST' })
+        .then(() => window.location.href = '/login')
+        .catch(err => console.error('Logout failed:', err));
+    }
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('userMenu');
+      const userIcon = e.target.closest('.user-icon');
+      if (!userIcon && menu.style.display === 'block') {
+        menu.style.display = 'none';
+      }
+    });
+
+    // Add active state to current page
+    document.addEventListener('DOMContentLoaded', () => {
+      const path = window.location.pathname;
+      document.querySelectorAll('.sidebar-item').forEach(item => {
+        if (item.getAttribute('onclick').includes(path)) {
+          item.classList.add('active');
+        }
+      });
+    });
+  </script>
 </body>
 </html>
 `;
