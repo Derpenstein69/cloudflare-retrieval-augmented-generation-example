@@ -796,7 +796,8 @@ export const templates = {
   login: () => pageLayout('Login', `
     <div class="auth-container">
       <h1>Login</h1>
-      <form id="login-form" onsubmit="EventHandlers.handleLogin(event)">
+      <div id="error-messages" class="error-container" style="display: none;"></div>
+      <form id="login-form" onsubmit="return EventHandlers.handleLogin(event)">
         <input type="email" name="email" placeholder="Email" required>
         <input type="password" name="password" placeholder="Password" required>
         <button type="submit">Login</button>
@@ -804,10 +805,43 @@ export const templates = {
       <p>Don't have an account? <a href="/signup">Sign up</a></p>
     </div>
     <script>
-      // Initialize state
       document.addEventListener('DOMContentLoaded', () => {
-        const form = document.getElementById('login-form');
-        form.addEventListener('submit', EventHandlers.handleLogin.bind(EventHandlers));
+        console.log('Login page loaded');
+        try {
+          const form = document.getElementById('login-form');
+          const errorContainer = document.getElementById('error-messages');
+
+          form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            errorContainer.style.display = 'none';
+            errorContainer.textContent = '';
+
+            try {
+              const formData = new FormData(form);
+              const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(Object.fromEntries(formData))
+              });
+
+              const data = await response.json();
+
+              if (response.ok) {
+                window.location.href = '/';
+              } else {
+                throw new Error(data.error || 'Login failed');
+              }
+            } catch (error) {
+              console.error('Login error:', error);
+              errorContainer.textContent = error.message;
+              errorContainer.style.display = 'block';
+            }
+          });
+        } catch (error) {
+          console.error('Login page initialization error:', error);
+        }
       });
     </script>
   `, { showSidebar: false, showMenuToggle: false }),

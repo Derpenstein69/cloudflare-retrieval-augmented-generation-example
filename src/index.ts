@@ -2,34 +2,56 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import routes from './routes'
 import { errorHandler, authMiddleware, validateEnv, SessionDO } from './shared'
-import { templates } from './Components'
+import { templates, errorTemplates } from './Components'
 import type { Env } from './types'
 
 const app = new Hono<{ Bindings: Env }>()
 
-// Global error handler
+// Enhanced error handler
 app.onError((err, c) => {
   console.error('Application error:', err);
-  return c.json({ error: 'Internal server error' }, 500);
+  return c.html(renderTemplate(() => errorTemplates.serverError(err)));
 });
 
 // Global middleware
 app.use(cors())
-
-// Improved error handling middleware
 app.use('*', async (c, next) => {
   try {
+    const path = new URL(c.req.url).pathname;
+    if (path === '/login' || path === '/signup') {
+      return next();
+    }
+
+    const sessionToken = getCookie(c, 'session');
+    if (!sessionToken && path !== '/login' && path !== '/signup') {
+      return c.redirect('/login');
+    }
+
     await next();
   } catch (err) {
     console.error('Middleware error:', err);
-    if (err instanceof Response) return err;
-    return c.json({ error: 'Internal server error' }, 500);
+    return c.redirect('/login');
   }
 });
 
-// Public routes
-app.get('/login', (c) => c.html(templates.login()))
-app.get('/signup', (c) => c.html(templates.signup()))
+// Public routes with proper error handling
+app.get('/login', async (c) => {
+  try {
+    return c.html(templates.login());
+  } catch (error) {
+    console.error('Login page error:', error);
+    return c.html(errorTemplates.serverError(error));
+  }
+});
+
+app.get('/signup', async (c) => {
+  try {
+    return c.html(templates.signup());
+  } catch (error) {
+    console.error('Signup page error:', error);
+    return c.html(errorTemplates.serverError(error));
+  }
+});
 
 // Protected route group
 const protectedRoutes = new Hono<{ Bindings: Env }>()

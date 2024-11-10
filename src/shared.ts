@@ -146,32 +146,40 @@ export const notFoundHandler = (c: Context) => {
 
 export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: () => Promise<void>) => {
   try {
-    // Skip auth check for login and signup routes
     const path = new URL(c.req.url).pathname;
+    console.log(`Processing request for path: ${path}`);
+
     if (path === '/login' || path === '/signup') {
+      console.log('Skipping auth check for public route');
       return next();
     }
 
     const sessionToken = getCookie(c, 'session');
     if (!sessionToken) {
+      console.log('No session token found, redirecting to login');
       return c.redirect('/login');
     }
 
     const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
     const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+
+    console.log('Validating session...');
     const response = await sessionDO.fetch(new Request('https://dummy/get'));
 
     if (!response.ok) {
+      console.log('Invalid session, clearing cookie and redirecting');
       deleteCookie(c, 'session', { path: '/' });
       return c.redirect('/login');
     }
 
     const userEmail = await response.text();
     if (!userEmail) {
+      console.log('No user email in session, clearing cookie and redirecting');
       deleteCookie(c, 'session', { path: '/' });
       return c.redirect('/login');
     }
 
+    console.log('Auth successful, setting user context');
     c.set('userEmail', userEmail);
     await next();
   } catch (error) {
