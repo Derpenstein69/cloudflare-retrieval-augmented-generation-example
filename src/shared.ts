@@ -288,3 +288,10 @@ export function validateEnv(env: Env): void {
     );
   }
 }
+
+export class Logger {
+  static log(level: 'DEBUG' | 'INFO' | 'ERROR' | 'WARN', message: string, data?: any) {
+    const timestamp = new Date().toISOString();
+    console.log(JSON.stringify({ timestamp, level, message, data }));
+  }
+}
