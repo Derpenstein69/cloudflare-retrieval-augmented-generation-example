@@ -182,11 +182,12 @@ routes.get('/activity', authMiddleware, async (c) => {
 });
 
 routes.get('/login', async (c) => {
-  const requestId = c.get('requestId');
+  const requestId = crypto.randomUUID();
+
   Logger.log('INFO', 'Login page requested', {
     requestId,
-    userAgent: c.req.headers.get('user-agent'),
-    ip: c.req.headers.get('cf-connecting-ip')
+    url: c.req.url,
+    userAgent: c.req.headers.get('user-agent')
   });
 
   try {

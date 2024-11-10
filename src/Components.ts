@@ -1010,3 +1010,87 @@ export function validateEnv(env: Env): void {
     );
   }
 }
+
+// Base layout template
+const baseLayout = (title: string, content: string) => `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} | RusstCorp</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    ${content}
+  </div>
+</body>
+</html>
+`;
+
+// Login form component
+const loginForm = `
+<div class="auth-form">
+  <h1>Login</h1>
+  <form id="loginForm" hx-post="/login" hx-swap="outerHTML">
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required>
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required>
+    </div>
+    <button type="submit">Login</button>
+  </form>
+  <p><a href="/signup">Need an account? Sign up</a></p>
+</div>
+`;
+
+// Enhanced templates object
+export const templates = {
+  login: () => {
+    try {
+      Logger.log('DEBUG', 'Rendering login template');
+      const html = baseLayout('Login', loginForm);
+      Logger.log('DEBUG', 'Login template rendered successfully');
+      return html;
+    } catch (error) {
+      Logger.log('ERROR', 'Failed to render login template', { error });
+      throw error;
+    }
+  },
+  // ... other templates
+};
+
+// Enhanced error templates
+export const errorTemplates = {
+  serverError: (error: Error) => baseLayout('Error', `
+    <div class="error-container">
+      <h1>Server Error</h1>
+      <p>${error.message}</p>
+      <a href="/">Return Home</a>
+    </div>
+  `),
+  notFound: () => baseLayout('Not Found', `
+    <div class="error-container">
+      <h1>Page Not Found</h1>
+      <p>The requested page could not be found.</p>
+      <a href="/">Return Home</a>
+    </div>
+  `)
+};
+
+// Enhanced render utility
+export function renderTemplate(template: () => string): string {
+  try {
+    Logger.log('DEBUG', 'Starting template render');
+    const html = template();
+    Logger.log('DEBUG', 'Template render complete');
+    return html;
+  } catch (error) {
+    Logger.log('ERROR', 'Template render failed', { error });
+    return errorTemplates.serverError(error as Error);
+  }
+}
