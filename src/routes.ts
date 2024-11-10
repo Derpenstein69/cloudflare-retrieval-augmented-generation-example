@@ -1,12 +1,130 @@
 import { Hono } from 'hono';
-import { getCookie } from 'hono/cookie';
+import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
+import { sign } from 'hono/jwt';
 import { profileTemplate } from './components/profile';
 import { memoryTemplate } from './components/memory';
 import { notesTemplate } from './components/notes';
+import { loginTemplate } from './components/login';
+import { signupTemplate } from './components/signup';
+import { settingsTemplate } from './components/settings';
 import { SessionDO } from './session';
+import { hashPassword, generateSecureKey } from './utils';
 import type { Env, Note } from './types';
 
 const routes = new Hono<{ Bindings: Env }>();
+
+// Auth Routes
+routes.all('/login', async (c) => {
+  if (c.req.method !== 'POST') {
+    return c.text('Method not allowed', 405);
+  }
+  try {
+    const formData = await c.req.parseBody();
+    const { email, password } = formData;
+
+    if (!email || !password) {
+      console.log('Email or password missing');
+      return c.json({ error: 'Email and password are required' }, 400);
+    }
+
+    const userData = await c.env.USERS_KV.get(email);
+    if (!userData) {
+      console.log('Invalid credentials for email:', email);
+      return c.json({ error: 'Invalid credentials' }, 401);
+    }
+
+    const user = JSON.parse(userData);
+    const hashedPassword = await hashPassword(password as string);
+
+    if (user.password !== hashedPassword) {
+      console.log('Invalid credentials for email:', email);
+      return c.json({ error: 'Invalid credentials' }, 401);
+    }
+
+    const sessionToken = generateSecureKey(32);
+    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+    await sessionDO.fetch(new Request('https://dummy/save', {
+      method: 'POST',
+      body: email as string
+    }));
+
+    setCookie(c, 'session', sessionToken, {
+      httpOnly: true,
+      secure: true,
+      path: '/',
+      sameSite: 'Strict',
+      maxAge: 60 * 60 * 24
+    });
+
+    return c.redirect('/');
+  } catch (error) {
+    console.error('Login error:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+routes.all('/signup', async (c) => {
+  if (c.req.method !== 'POST') {
+    return c.text('Method not allowed', 405);
+  }
+  try {
+    const formData = await c.req.parseBody();
+    const { email, password, confirm_password } = formData;
+
+    if (!email || !password) {
+      return c.json({ error: "Missing email or password" }, 400);
+    }
+
+    if (password !== confirm_password) {
+      return c.json({ error: "Passwords do not match" }, 400);
+    }
+
+    if (typeof password === 'string' && password.length < 8) {
+      return c.json({ error: "Password must be at least 8 characters" }, 400);
+    }
+
+    const existing = await c.env.USERS_KV.get(email as string);
+    if (existing) {
+      return c.json({ error: "Email already registered" }, 400);
+    }
+
+    const hashedPassword = await hashPassword(password as string);
+    const user = { email, password: hashedPassword };
+    await c.env.USERS_KV.put(email as string, JSON.stringify(user));
+
+    const sessionToken = generateSecureKey(32);
+    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+    await sessionDO.fetch(new Request('https://dummy/save', {
+      method: 'POST',
+      body: email as string
+    }));
+
+    setCookie(c, 'session', sessionToken, {
+      httpOnly: true,
+      secure: true,
+      path: '/',
+      sameSite: 'Strict',
+      maxAge: 60 * 60 * 24
+    });
+
+    return c.redirect('/');
+  } catch (err) {
+    console.error('Signup error:', err);
+    return c.json({ error: "An error occurred during signup" }, 500);
+  }
+});
+
+routes.post('/logout', async (c) => {
+  const sessionToken = getCookie(c, 'session');
+  if (!sessionToken) {
+    return c.json({ message: 'No active session' }, 400);
+  }
+
+  deleteCookie(c, 'session', { path: '/' });
+  return c.json({ message: 'Logged out successfully' });
+});
 
 // Profile Routes
 routes.get('/profile', async (c) => {
@@ -64,6 +182,56 @@ routes.post('/profile', async (c) => {
 
   await c.env.USERS_KV.put(userEmail, JSON.stringify(user));
   return c.json({ message: 'Profile updated successfully' });
+});
+
+// Settings Routes
+routes.get('/settings', async (c) => {
+  const sessionId = getCookie(c, 'session');
+  if (!sessionId) {
+    return c.redirect('/login');
+  }
+
+  const userEmail = await c.env.SESSIONS_DO.get(sessionId);
+  if (!userEmail) {
+    return c.redirect('/login');
+  }
+
+  const userData = await c.env.USERS_KV.get(userEmail);
+  if (!userData) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  return c.html(settingsTemplate());
+});
+
+routes.post('/settings', async (c) => {
+  const sessionId = getCookie(c, 'session');
+  if (!sessionId) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const userEmail = await c.env.SESSIONS_DO.get(sessionId);
+  if (!userEmail) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const { current_password, new_password } = await c.req.json();
+  const userData = await c.env.USERS_KV.get(userEmail);
+
+  if (current_password && new_password) {
+    const hashedCurrentPassword = await hashPassword(current_password);
+    const user = JSON.parse(userData);
+
+    if (user.password !== hashedCurrentPassword) {
+      return c.json({ error: 'Invalid current password' }, 400);
+    }
+
+    const hashedNewPassword = await hashPassword(new_password);
+    user.password = hashedNewPassword;
+    await c.env.USERS_KV.put(userEmail, JSON.stringify(user));
+  }
+
+  return c.json({ message: 'Settings updated successfully' });
 });
 
 // Notes Routes
@@ -129,5 +297,10 @@ routes.post('/notes', async (c) => {
 
 // Memory Routes
 routes.get('/memory', (c) => c.html(memoryTemplate()));
+
+// Catch-all route
+routes.all('*', async (c) => {
+  return c.text('Not found', 404);
+});
 
 export default routes;

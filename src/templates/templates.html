@@ -1,0 +1,123 @@
+
+<!-- UI Template -->
+<template id="ui-template">
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Chat | Cloudflare RAG Example</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <script src="https://unpkg.com/htmx.org/dist/htmx.js"></script>
+  </head>
+  <body>
+    <h1>Retrieval Augmented Generation (RAG) Example</h1>
+
+    <p>
+      <small>
+        <a href="/ui">Query</a> ・ <a href="/notes">Notes</a> ・ <a href="/write">Add note</a>
+      </small>
+    </p>
+
+    <form hx-get="/" hx-trigger="submit" hx-target="#result">
+      <textarea name="text" required="true" placeholder="Ask the AI anything"></textarea>
+      <button type="submit">Submit</button>
+    </form>
+
+    <p id="result"></p>
+  </body>
+  </html>
+</template>
+
+<!-- Notes Template -->
+<template id="notes-template">
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Chat | Cloudflare RAG Example</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <script src="https://unpkg.com/mustache@latest"></script>
+    <script src="https://unpkg.com/htmx.org/dist/htmx.js"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/client-side-templates.js"></script>
+  </head>
+  <body>
+    <h1>Notes</h1>
+
+    <p>
+      <small>
+        <a href="/ui">Query</a> ・ <a href="/notes">Notes</a> ・ <a href="/write">Add note</a>
+      </small>
+    </p>
+
+    <div
+      hx-ext='client-side-templates'
+      hx-get="/notes.json"
+      hx-trigger="load"
+      hx-swap="innerHTML"
+      hx-target="#notes"
+      mustache-array-template="note"
+    >
+      <template id="note">
+        {{#data}}
+          <div class="note">
+            <h2>Note #{{id}}</h2>
+            <p>{{text}}</p>
+            <form method="POST" action="/notes/{{id}}">
+              <input type="hidden" name="_method" value="DELETE">
+              <button type="submit">Delete</button>
+            </form>
+          </div>
+        {{/data}}
+      </template>
+
+      <div id="notes"></div>
+    </div>
+  </body>
+  </html>
+</template>
+
+<!-- Write Template -->
+<template id="write-template">
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Write | Cloudflare RAG Example</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+  </head>
+  <body>
+    <h1>Write a new note</h1>
+
+    <p>
+      <small>
+        <a href="/ui">Query</a> ・ <a href="/notes">Notes</a> ・ <a href="/write">Add note</a>
+      </small>
+    </p>
+
+    <form>
+      <textarea name="text" required="true" placeholder="Write a new note to add to the AI's knowledge base"></textarea>
+      <button type="submit">Submit</button>
+    </form>
+
+    <script>
+      const form = document.querySelector('form')
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const text = form.querySelector('textarea').value
+        const response = await fetch('/notes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ text })
+        })
+        if (response.ok) {
+          window.location.href = '/ui'
+        } else {
+          alert('Failed to create note')
+        }
+      })
+    </script>
+  </body>
+  </html>
+</template>
