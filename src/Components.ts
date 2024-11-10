@@ -797,11 +797,20 @@ const pageLayout = (title: string, content: string, options: { showSidebar?: boo
 
 // Update template functions to use pageLayout
 export const templates = {
-  login: () => pageLayout('Login', `
+  login: () => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Login | RusstCorp</title>
+  ${sharedStyles}
+</head>
+<body>
+  <div class="content">
     <div class="auth-container">
       <h1>Login</h1>
       <div id="error-messages" class="error-container" style="display: none;"></div>
-      <form id="login-form" method="POST">
+      <form id="login-form" onsubmit="handleLogin(event)">
         <div class="form-group">
           <input type="email" name="email" placeholder="Email" required>
         </div>
@@ -812,36 +821,38 @@ export const templates = {
       </form>
       <p>Don't have an account? <a href="/signup">Sign up</a></p>
     </div>
-    <script>
-      document.getElementById('login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const form = e.target;
-        const errorContainer = document.getElementById('error-messages');
+  </div>
+  <script>
+    async function handleLogin(event) {
+      event.preventDefault();
+      const form = event.target;
+      const errorContainer = document.getElementById('error-messages');
 
-        try {
-          const response = await fetch('/login', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(Object.fromEntries(new FormData(form))),
-          });
+      try {
+        const response = await fetch('/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(Object.fromEntries(new FormData(form)))
+        });
 
-          const data = await response.json();
+        const data = await response.json();
 
-          if (response.ok) {
-            window.location.href = '/';
-          } else {
-            throw new Error(data.error || 'Login failed');
-          }
-        } catch (error) {
-          errorContainer.textContent = error.message;
-          errorContainer.style.display = 'block';
+        if (response.ok) {
+          window.location.href = '/';
+        } else {
+          throw new Error(data.error || 'Login failed');
         }
-      });
-    </script>
-  `, { showSidebar: false, showMenuToggle: false }),
-
+      } catch (error) {
+        errorContainer.textContent = error.message;
+        errorContainer.style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>
+  `,
   signup: () => pageLayout('Sign Up', `
     <div class="auth-container">
       <h1>Sign Up</h1>

@@ -33,8 +33,24 @@ class Metrics {
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Public routes (before auth middleware)
-app.get('/login', (c) => c.html(renderTemplate(templates.login)));
+// Add basic logging middleware first
+app.use('*', async (c, next) => {
+  console.log(`Request: ${c.req.method} ${c.req.url}`);
+  await next();
+  console.log(`Response: ${c.res.status}`);
+});
+
+// Public routes BEFORE any other middleware
+app.get('/login', async (c) => {
+  console.log('Handling login page request');
+  try {
+    const html = renderTemplate(() => templates.login());
+    return c.html(html);
+  } catch (error) {
+    console.error('Login page error:', error);
+    return c.html(renderTemplate(() => errorTemplates.serverError(error)));
+  }
+});
 app.get('/signup', (c) => c.html(renderTemplate(templates.signup)));
 
 // Improved CORS configuration

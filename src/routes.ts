@@ -183,7 +183,10 @@ routes.get('/activity', authMiddleware, async (c) => {
 
 routes.get('/login', (c) => {
   try {
-    return c.html(renderTemplate(templates.login));
+    console.log('Rendering login page template');
+    const html = renderTemplate(() => templates.login());
+    console.log('Login template rendered successfully');
+    return c.html(html);
   } catch (error) {
     console.error('Login page rendering error:', error);
     return c.html(renderTemplate(() => errorTemplates.serverError(error)));
