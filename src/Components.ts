@@ -643,15 +643,15 @@ export const eventHandlers = `
         content.classList.toggle('collapsed', !newState.ui.sidebar.isOpen);
       }
 
-      // Update notifications
+      // Update notifications - Fix the template literal syntax
       const notificationsContainer = document.getElementById('notifications');
       if (notificationsContainer) {
         notificationsContainer.innerHTML = newState.ui.notifications
-          .map(notification => `
-            <div class="toast ${notification.type}">
-              ${notification.message}
-            </div>
-          `)
+          .map(notification =>
+            '<div class="toast ' + notification.type + '">' +
+              notification.message +
+            '</div>'
+          )
           .join('');
       }
 
