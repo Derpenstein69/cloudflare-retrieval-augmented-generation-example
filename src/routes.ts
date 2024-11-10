@@ -5,26 +5,14 @@ import {
   validateEmail,
   hashPassword,
   generateSecureKey,
-  safeExecute,
   SessionDO,
-  validatePasswordStrength
+  // validatePasswordStrength
 } from './shared';
 import { templates, renderTemplate, errorTemplates } from './Components';
-import type { Env, User, ApiResponse } from './types';
+import type { Env } from './types';
 import { Logger } from './shared';
+
 // Enhanced error mapping
-const errors = {
-  auth: {
-    invalidCreds: { code: 'AUTH_001', error: 'Invalid credentials', status: 401 },
-    notFound: { code: 'AUTH_002', error: 'User not found', status: 404 },
-    missingFields: { code: 'AUTH_003', error: 'Required fields missing', status: 400 },
-    passwordMismatch: { code: 'AUTH_004', error: 'Passwords do not match', status: 400 },
-    passwordStrength: { code: 'AUTH_005', error: 'Password does not meet security requirements', status: 400 },
-    emailExists: { code: 'AUTH_006', error: 'Email already registered', status: 400 },
-    noSession: { code: 'AUTH_007', error: 'No active session', status: 401 },
-    sessionExpired: { code: 'AUTH_008', error: 'Session expired', status: 401 }
-  }
-};
 
 // Session configuration
 const SESSION_CONFIG = {
@@ -48,6 +36,7 @@ export const authMiddleware = async (c: any, next: () => Promise<any>) => {
     if (!sessionToken) throw new Error('No session token');
 
     const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, token);
     const sessionDO = c.env.SESSIONS_DO.get(sessionId);
     const response = await sessionDO.fetch(new Request('https://dummy/get'));
 
@@ -84,36 +73,36 @@ async function renewSession(c: any, token: string, email: string): Promise<void>
 }
 
 // Error handling middleware
-const errorHandler = (error: Error, operation: string): ApiResponse => {
-  console.error(`Error in ${operation}:`, error);
-  return {
-    success: false,
-    error: `Failed to ${operation}`,
-    code: 'SYS_001',
-    status: 500
-  };
-};
+
+function errorHandler(error: Error, context: string): Response {
+  console.error(`Error during ${context}:`, error);
+  return new Response('Internal Server Error', { status: 500 });
+}
 
 const routes = new Hono<{ Bindings: Env }>();
 
 // Apply global middleware
-routes.use('*', async (c, next) => {
+routes.use('*', async (_, next) => {
   try {
     await next();
   } catch (error) {
     console.error('Global middleware error:', error);
-    return errorHandler(error, 'process request');
+    return errorHandler(error as Error, 'process request');
+  }
+});
+
+// Error handling middleware
+routes.use('*', async (_, next) => {
+  try {
+    await next();
+  } catch (error) {
+    console.error('Global middleware error:', error);
+    return errorHandler(error as Error, 'process request');
   }
 });
 
 routes.use('/api/*', rateLimit());
 routes.use('/api/*', sanitize());
-
-// Enhanced route implementations...
-// (Previous route implementations remain the same but with added validation,
-// rate limiting, and improved error handling)
-
-// New Features
 
 // Password reset
 routes.post('/forgot-password', validate(['email']), async (c) => {
@@ -129,7 +118,7 @@ routes.post('/forgot-password', validate(['email']), async (c) => {
     return c.json({ success: true, message: 'If email exists, reset instructions have been sent' });
   } catch (error) {
     console.error('Password reset error:', error);
-    return errorHandler(error, 'reset password');
+    return errorHandler(error as Error, 'reset password');
   }
 });
 
@@ -146,13 +135,13 @@ routes.post('/profile/picture', authMiddleware, async (c) => {
     return c.json({ success: true, message: 'Profile picture updated' });
   } catch (error) {
     console.error('Profile picture upload error:', error);
-    return errorHandler(error, 'upload profile picture');
+    return errorHandler(error as Error, 'upload profile picture');
   }
 });
 
 // Account deletion
-routes.delete('/account', authMiddleware, async (c) => {
-  const userEmail = c.get('userEmail');
+routes.delete('/account', authMiddleware, async (c: any) => {
+  const userEmail = c.get('userEmail') as string;
   try {
     // Delete user data
     await c.env.USERS_KV.delete(userEmail);
@@ -163,13 +152,13 @@ routes.delete('/account', authMiddleware, async (c) => {
     return c.json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {
     console.error('Account deletion error:', error);
-    return errorHandler(error, 'delete account');
+    return errorHandler(error as Error, 'delete account');
   }
 });
 
 // Activity logging
-routes.get('/activity', authMiddleware, async (c) => {
-  const userEmail = c.get('userEmail');
+routes.get('/activity', authMiddleware, async (c: any) => {
+  const userEmail = c.get('userEmail') as string;
   try {
     const { results } = await c.env.DATABASE.prepare(
       'SELECT * FROM activity_log WHERE userEmail = ? ORDER BY timestamp DESC LIMIT 50'
@@ -177,7 +166,7 @@ routes.get('/activity', authMiddleware, async (c) => {
     return c.json(results);
   } catch (error) {
     console.error('Activity logging error:', error);
-    return errorHandler(error, 'fetch activity log');
+    return errorHandler(error as Error, 'fetch activity log');
   }
 });
 
@@ -187,7 +176,7 @@ routes.get('/login', async (c) => {
   Logger.log('INFO', 'Login page requested', {
     requestId,
     url: c.req.url,
-    userAgent: c.req.headers.get('user-agent')
+    userAgent: c.req.header('user-agent')
   });
 
   try {
@@ -196,16 +185,16 @@ routes.get('/login', async (c) => {
     return c.html(html);
   } catch (error) {
     Logger.log('ERROR', 'Login page render failed', { requestId, error });
-    return c.html(renderTemplate(() => errorTemplates.serverError(error)));
+    return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
   }
 });
 
 routes.get('/signup', (c) => {
   try {
-    return c.html(renderTemplate(templates.signup));
+    return c.html(renderTemplate(() => templates.signup()));
   } catch (error) {
     console.error('Signup page rendering error:', error);
-    return c.html(renderTemplate(() => errorTemplates.serverError(error)));
+    return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
   }
 });
 
@@ -218,11 +207,11 @@ routes.post('/login', async (c) => {
 
     const userData = await c.env.USERS_KV.get(email);
     if (!userData) return c.json({ error: 'Invalid credentials' }, 401);
-
+    // const user = JSON.parse(userData);
     const user = JSON.parse(userData);
-    const hashedPassword = await hashPassword(password);
-
-    if (user.password !== hashedPassword) {
+    JSON.parse(userData);
+    if (!validatePassword(password, user.password)) {
+    if (!isPasswordValid) {
       return c.json({ error: 'Invalid credentials' }, 401);
     }
 
@@ -253,13 +242,13 @@ routes.post('/login', async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error('Login error:', error);
-    return c.json({ error: error.message || 'Login failed' }, 500);
+    const errorMessage = error instanceof Error ? error.message : 'Login failed';
+    return c.json({ error: errorMessage }, 500);
   }
 });
 
-// Helper function to create session
+// async function createSession(c: any, email: string, token: string) {
 async function createSession(c: any, email: string, token: string) {
-  const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, token);
   const sessionDO = c.env.SESSIONS_DO.get(sessionId);
   await sessionDO.fetch(new Request('https://dummy/save', {
     method: 'POST',
@@ -320,10 +309,10 @@ routes.all('/signup', async (c) => {
       maxAge: 60 * 60 * 24
     });
 
-    return apiResponse({ success: true });
+    return c.json({ success: true });
   } catch (err) {
     console.error('Signup error:', err);
-    return apiResponse({ error: 'Signup failed' }, 400);
+    return c.json({ error: 'Signup failed' }, 400);
   }
 });
 
@@ -338,8 +327,8 @@ routes.post('/logout', async (c) => {
 });
 
 // Profile Routes
-routes.get('/profile', authMiddleware, async (c) => {
-  const userEmail = c.get('userEmail');
+routes.get('/profile', authMiddleware, async (c: any) => {
+  const userEmail = c.get('userEmail') as string;
   const userData = await c.env.USERS_KV.get(userEmail);
   if (!userData) {
     return c.json({ error: 'User not found' }, 404);
@@ -347,9 +336,12 @@ routes.get('/profile', authMiddleware, async (c) => {
   return c.html(renderTemplate(templates.profile));
 });
 
-routes.post('/profile', authMiddleware, async (c) => {
-  const userEmail = c.get('userEmail');
-  const userData = await c.env.USERS_KV.get(userEmail);
+routes.post('/profile', authMiddleware, async (c: any) => {
+  const userEmail = c.get('userEmail') as string;
+  const userData = await c.env.USERS_KV.get(userEmail) as string | null;
+  if (!userData) {
+    return c.json({ error: 'User not found' }, 404);
+  }
   const user = JSON.parse(userData);
   const { display_name, bio } = await c.req.json();
 
@@ -361,8 +353,8 @@ routes.post('/profile', authMiddleware, async (c) => {
 });
 
 // Settings Routes
-routes.get('/settings', authMiddleware, async (c) => {
-  const userEmail = c.get('userEmail');
+routes.get('/settings', authMiddleware, async (c: any) => {
+  const userEmail = c.get('userEmail') as string;
   const userData = await c.env.USERS_KV.get(userEmail);
   if (!userData) {
     return c.json({ error: 'User not found' }, 404);
@@ -370,12 +362,12 @@ routes.get('/settings', authMiddleware, async (c) => {
   return c.html(renderTemplate(templates.settings));
 });
 
-routes.post('/settings', authMiddleware, async (c) => {
-  const userEmail = c.get('userEmail');
+routes.post('/settings', authMiddleware, async (c: any) => {
+  const userEmail = c.get('userEmail') as string;
   const { current_password, new_password } = await c.req.json();
-  const userData = await c.env.USERS_KV.get(userEmail);
+  const userData = await c.env.USERS_KV.get(userEmail) as string | null;
 
-  if (current_password && new_password) {
+  if (userData && current_password && new_password) {
     const hashedCurrentPassword = await hashPassword(current_password);
     const user = JSON.parse(userData);
 
@@ -392,19 +384,19 @@ routes.post('/settings', authMiddleware, async (c) => {
 
 // Notes Routes
 routes.get('/notes', authMiddleware, async (c) => {
-  const userEmail = c.get('userEmail');
+  const userEmail = c.req.header('userEmail');
   try {
     const query = `SELECT * FROM notes WHERE userEmail = ?`
     const { results } = await c.env.DATABASE.prepare(query).bind(userEmail).all()
     return c.json(results || [])
   } catch (error) {
-    console.error('Error fetching notes:', error)
-    return c.json({ error: 'Failed to fetch notes' }, 500)
+    console.error('Error fetching notes:', error);
+    return c.json({ error: 'Failed to fetch notes' }, 500);
   }
 });
 
 routes.post('/notes', authMiddleware, async (c) => {
-  const userEmail = c.get('userEmail');
+  const userEmail = c.req.header('userEmail');
   const { text } = await c.req.json();
   try {
     const query = `INSERT INTO notes (userEmail, text) VALUES (?, ?)`
@@ -426,7 +418,7 @@ routes.get('/', authMiddleware, (c) => {
     return c.html(html);
   } catch (error) {
     console.error('Home page rendering error:', error);
-    return c.html(renderTemplate(() => errorTemplates.serverError(error)));
+    return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
   }
 });
 

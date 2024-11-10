@@ -1,46 +1,60 @@
 import type { AppState, User, Note, MemoryFolder, Notification } from '../types';
 import { ThemeMode, AuthStatus, NotificationType } from '../types';
 
-interface StateHistory {
-  past: AppState[];
-  future: AppState[];
-}
+// Removed unused StateHistory interface
 
 class StateManager {
+  private static instance: StateManager;
+
+  static getInstance(): StateManager {
+    if (!StateManager.instance) {
+      StateManager.instance = new StateManager();
+    }
+    return StateManager.instance;
+  }
+  private state: AppState = this.loadState() || {} as AppState;
+  private middlewares: Array<(state: AppState, action: string) => void> = [];
+  private subscribers: Array<(state: AppState) => void> = [];
 
   private loadState(): AppState | null {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const saved = window.localStorage.getItem('app_state');
+      if (typeof (globalThis as any).window !== 'undefined' && (globalThis as any).window.localStorage) {
+        const saved = (globalThis as any).window.localStorage.getItem('app_state');
         return saved ? JSON.parse(saved) : null;
       }
-      return null;
     } catch (error) {
       console.error('Failed to load state:', error);
-      return null;
     }
+    return null;
   }
 
   private saveState(): void {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem('app_state', JSON.stringify(this.state));
+      if (typeof (globalThis as any).window !== 'undefined' && (globalThis as any).window.localStorage) {
+        (globalThis as any).window.localStorage.setItem('app_state', JSON.stringify(this.state));
       }
     } catch (error) {
       console.error('Failed to save state:', error);
     }
   }
 
+  private setState(newState: Partial<AppState>, action: string): void {
+    this.state = { ...this.state, ...newState };
+    this.saveState();
+    this.runMiddlewares(action);
+    this.notifySubscribers();
+  }
+
   addMiddleware(fn: (state: AppState, action: string) => void): void {
     this.middlewares.push(fn);
   }
-
   private runMiddlewares(action: string): void {
-    this.middlewares.forEach(fn => fn(this.state, action));
+    this.middlewares.forEach((fn: (state: AppState, action: string) => void) => fn(this.state, action));
+    this.subscribers.forEach((callback: (state: AppState) => void) => callback(this.state));
   }
 
-  private notifySubscribers() {
-    this.subscribers.forEach(callback => callback(this.state));
+  private notifySubscribers(): void {
+    this.subscribers.forEach((callback: (state: AppState) => void) => callback(this.state));
   }
 
   // Enhanced actions with error handling

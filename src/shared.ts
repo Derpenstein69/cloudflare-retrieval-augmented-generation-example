@@ -141,7 +141,7 @@ export class SessionDO {
 
   private async handleGet(): Promise<Response> {
     try {
-      const session = await this.state.storage.get('session');
+      const session = await this.state.storage.get<{ email: string; expires: number; lastActivity: number; createdAt: number }>('session');
       if (!session) {
         return new Response('Session not found', { status: 404 });
       }
@@ -232,7 +232,7 @@ export const errorHandler = async (err: Error, c: Context<{ Bindings: Env }>) =>
       error: err.message,
       code: err.code,
       details: err.details
-    }, err.status);
+    }, { status: err.status });
   }
   return c.html(renderTemplate(() => errorTemplates.serverError(err)));
 };
@@ -262,9 +262,9 @@ export const authMiddleware = async (c: Context<{ Bindings: Env }>, next: () => 
       throw new AppError('Invalid session', 'AUTH_FAILED', 401);
     }
 
-    const session = await response.json();
-    c.set('userEmail', session.email);
-    c.set('session', session);
+    const session = await response.json() as { email: string };
+    (c as any).set('userEmail', session.email);
+    (c as any).set('session', session);
     await next();
   } catch (error) {
     console.error('Auth middleware error:', error);

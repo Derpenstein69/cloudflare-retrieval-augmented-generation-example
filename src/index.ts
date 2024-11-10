@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
+import { deleteCookie } from 'hono/cookie';
 import routes from './routes';
-import { errorHandler, authMiddleware, validateEnv, SessionDO } from './shared';
+import { authMiddleware, SessionDO } from './shared';
 import { templates, errorTemplates, renderTemplate } from './Components';
 import type { Env } from './types';
 
@@ -48,10 +48,10 @@ app.get('/login', async (c) => {
     return c.html(html);
   } catch (error) {
     console.error('Login page error:', error);
-    return c.html(renderTemplate(() => errorTemplates.serverError(error)));
+    return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
   }
 });
-app.get('/signup', (c) => c.html(renderTemplate(templates.signup)));
+app.get('/signup', (c) => c.html(renderTemplate(() => templates.signup())));
 
 // Improved CORS configuration
 app.use(cors({
@@ -64,7 +64,7 @@ app.use(cors({
 // Request logging middleware
 app.use('*', async (c, next) => {
   const requestId = crypto.randomUUID();
-  c.set('requestId', requestId);
+  c.req.header('requestId', requestId);
 
   Metrics.startTimer(requestId);
   Logger.log('INFO', 'Request received', {
@@ -87,7 +87,7 @@ app.use('*', async (c, next) => {
 
 // Enhanced error handler
 app.onError((err, c) => {
-  const requestId = c.get('requestId');
+  const requestId = c.req.header('requestId');
   Logger.log('ERROR', 'Application error', {
     id: requestId,
     error: err.message,
@@ -113,7 +113,7 @@ app.get('/health', (c) => {
   return c.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    version: process.env.VERSION || '1.0.0'
+    version: '1.0.0'
   });
 });
 
@@ -185,7 +185,7 @@ async function fetchRelevantNotes(c: any, vectorQuery: any): Promise<string[]> {
     'SELECT * FROM notes WHERE id = ?'
   ).bind(vecId).all();
 
-  return results?.map(note => note.text) || [];
+  return results?.map((note: { text: string }) => note.text) || [];
 }
 
 async function generateAIResponse(c: any, question: string, notes: string[]): Promise<string> {

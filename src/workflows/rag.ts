@@ -17,8 +17,8 @@ interface RAGMetrics {
 export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
   private metrics: RAGMetrics;
 
-  constructor(env: Env) {
-    super(env);
+  constructor(public env: Env) {
+    super();
     this.metrics = {
       processingTime: 0,
       vectorDimensions: 0
@@ -56,7 +56,7 @@ export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
         const { results } = await this.env.DATABASE.prepare(query)
           .bind(
             processedText,
-            userEmail,
+            userEmail as string,
             new Date().toISOString(),
             1
           )
@@ -70,8 +70,8 @@ export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
 
       // Generate embedding
       const embedding = await step.do('generate embedding', async () => {
-        const embeddings = await this.env.AI.run('@cf/baai/bge-base-en-v1.5', {
-          text: processedText,
+        const embeddings = await this.env.AI.run('text-embedding-ada-002' as any, {
+          input: processedText,
           options: {
             temperature: 0.7,
             maxTokens: 512
@@ -93,13 +93,13 @@ export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
           id: record!.id.toString(),
           values: embedding,
           metadata: {
-            userEmail,
+            userEmail: userEmail as string,
             created_at: new Date().toISOString(),
             version: 1
           }
         }]);
 
-        if (!response?.ok) {
+        if (!response?.acknowledged) {
           throw new RAGError('Failed to insert vector', 'vectordb');
         }
       });
@@ -123,7 +123,7 @@ export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
       }
 
       throw error instanceof RAGError ? error : new RAGError(
-        error.message || 'Unknown error',
+        (error instanceof Error ? error.message : 'Unknown error'),
         'unknown',
         error
       );
@@ -138,7 +138,7 @@ export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
         .run();
 
       // Delete vector
-      await this.env.VECTOR_INDEX.delete([noteId]);
+      await this.env.VECTOR_INDEX.remove([noteId]);
 
     } catch (error) {
       console.error('Rollback failed:', error);

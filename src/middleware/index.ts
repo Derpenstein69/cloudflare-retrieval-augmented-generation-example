@@ -1,8 +1,11 @@
 import { Context } from 'hono';
 
+import { JSDOM } from 'jsdom';
+
 // Sanitize Middleware
 const sanitizeHtml = (input: string): string => {
-  const element = document.createElement('div');
+  const dom = new JSDOM();
+  const element = dom.window.document.createElement('div');
   element.innerText = input;
   return element.innerHTML;
 };
@@ -16,7 +19,7 @@ const sanitize = () => {
           body[key] = sanitizeHtml(body[key]);
         }
       }
-      c.req.body = JSON.stringify(body);
+      c.set('sanitizedBody', body);
       await next();
     } catch (error) {
       console.error('Sanitize middleware error:', error);
@@ -49,7 +52,7 @@ const rateLimit = (limit: number = 100, windowMs: number = 60000) => {
 
   return async (c: Context, next: () => Promise<void>) => {
     try {
-      const key = c.req.headers.get('cf-connecting-ip') || c.req.headers.get('x-real-ip') || 'unknown';
+      const key = c.req.header('cf-connecting-ip') || c.req.header('x-real-ip') || 'unknown';
       const now = Date.now();
       const record = cache.get(key);
 

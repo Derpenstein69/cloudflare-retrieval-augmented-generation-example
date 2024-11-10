@@ -1,19 +1,6 @@
-import { api } from './api-service';
-import { state } from './state';
-import { deleteCookie } from 'hono/cookie';
-import {
-  AuthStatus,
-  NotificationType,
-  ThemeMode,
-  User,
-  Note,
-  MemoryFolder,
-  AppState,
-  UserPreferences,
-  UIState,
-  AuthState
-} from './types';
 import { Logger } from './shared';
+import { Env } from './types';
+import { Context } from 'hono';
 
 // Theme configuration
 const themeConfig = {
@@ -224,10 +211,7 @@ export const sharedStyles = `
 `;
 
 // Safe logging function that doesn't depend on external Logger
-const backuplog = (level: 'DEBUG' | 'INFO' | 'ERROR' | 'WARN', message: string, data?: any) => {
-  const timestamp = new Date().toISOString();
-  console.log(JSON.stringify({ timestamp, level, message, data }));
-};
+// Removed unused backuplog function
 
 // Base layout template
 const baseLayout = (title: string, content: string) => `
@@ -238,10 +222,7 @@ const baseLayout = (title: string, content: string) => `
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title} | RusstCorp</title>
   <link rel="stylesheet" href="/styles.css">
-  ${sharedStyles}
-</head>
-<body>
-  <div class="container">
+// Removed unused backuplog function
     ${content}
   </div>
 </body>
@@ -306,7 +287,7 @@ export const errorHandler = async (err: Error, c: Context<{ Bindings: Env }>) =>
       error: err.message,
       code: err.code,
       details: err.details
-    }, err.status);
+    }, { status: err.status });
   }
   return c.html(renderTemplate(() => errorTemplates.serverError(err)));
 };
@@ -389,9 +370,9 @@ export class SessionDO {
         case '/save':
           return await this.handleSave(request);
         case '/get':
-          return await this.handleGet();
+  // Removed unused env property
         case '/delete':
-          return await this.handleDelete();
+  // Removed unused RENEWAL_THRESHOLD property
         case '/renew':
           return await this.handleRenew();
         default:
@@ -423,7 +404,7 @@ export class SessionDO {
 
   private async handleGet(): Promise<Response> {
     try {
-      const session = await this.state.storage.get('session');
+      const session = await this.state.storage.get<{ expires: number }>('session');
       if (!session) {
         return new Response('Session not found', { status: 404 });
       }
