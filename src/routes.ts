@@ -420,7 +420,15 @@ routes.post('/notes', authMiddleware, async (c) => {
 routes.get('/memory', authMiddleware, (c) => c.html(renderTemplate(templates.memory)));
 
 // Home Route
-routes.get('/', authMiddleware, (c) => c.html(renderTemplate(templates.home)));
+routes.get('/', authMiddleware, (c) => {
+  try {
+    const html = renderTemplate(() => templates.home());
+    return c.html(html);
+  } catch (error) {
+    console.error('Home page rendering error:', error);
+    return c.html(renderTemplate(() => errorTemplates.serverError(error)));
+  }
+});
 
 // Catch-all route
 routes.all('*', (c) => c.text('Not found', 404));
