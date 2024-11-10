@@ -101,30 +101,53 @@ routes.get('/', async (c) => {
   return c.html(renderTemplate(() => templates.home()));
 });
 
-routes.get('/login', async (c) => {
-  const requestId = crypto.randomUUID();
-  Logger.log('INFO', 'Login page requested', {
-    requestId,
-    url: c.req.url,
-    userAgent: c.req.header('user-agent')
-  });
-
+// API routes for authentication (before protected routes)
+routes.post('/api/login', async (c) => {
   try {
-    const html = renderTemplate(() => templates.login());
-    Logger.log('INFO', 'Login page rendered', { requestId });
-    return c.html(html);
-  } catch (error) {
-    Logger.log('ERROR', 'Login page render failed', { requestId, error });
-    return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
-  }
-});
+    const { email, password } = await c.req.json();
+    if (!email || !password || !validateEmail(email)) {
+      return c.json({ error: 'Invalid credentials' }, 400);
+    }
 
-routes.get('/signup', (c) => {
-  try {
-    return c.html(renderTemplate(() => templates.signup()));
+    const userData = await c.env.USERS_KV.get(email);
+    if (!userData) return c.json({ error: 'Invalid credentials' }, 401);
+    const user = JSON.parse(userData);
+    if (!validatePassword(password, user.password)) {
+      return c.json({ error: 'Invalid credentials' }, 401);
+    }
+
+    // Generate and store session
+    const sessionToken = generateSecureKey(32);
+    const sessionDO = c.env.SESSIONS_DO.get(
+      SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken)
+    );
+
+    const saveResponse = await sessionDO.fetch(new Request('https://dummy/save', {
+      method: 'POST',
+      body: email
+    }));
+
+    if (!saveResponse.ok) {
+      throw new Error('Failed to create session');
+    }
+
+    // Set cookie with session token
+    setCookie(c, 'session', sessionToken, {
+      httpOnly: true,
+      secure: true,
+      path: '/',
+      sameSite: 'Strict',
+      maxAge: 60 * 60 * 24 // 24 hours
+    });
+
+    return c.json({ success: true, redirect: '/dashboard' });
   } catch (error) {
-    Logger.log('ERROR', 'Signup page render failed', { error });
-    return c.html(renderTemplate(() => errorTemplates.serverError(error as Error)));
+    Logger.log('ERROR', 'Login failed', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return c.json({
+      error: error instanceof Error ? error.message : 'Login failed'
+    }, 500);
   }
 });
 
@@ -190,52 +213,6 @@ protectedRoutes.get('/profile', async (c) => {
 routes.route('/', protectedRoutes);
 
 // API routes
-routes.post('/api/login', async (c) => {
-  try {
-    const { email, password } = await c.req.json();
-    if (!email || !password || !validateEmail(email)) {
-      return c.json({ error: 'Invalid credentials' }, 400);
-    }
-
-    const userData = await c.env.USERS_KV.get(email);
-    if (!userData) return c.json({ error: 'Invalid credentials' }, 401);
-    const user = JSON.parse(userData);
-    if (!validatePassword(password, user.password)) {
-      return c.json({ error: 'Invalid credentials' }, 401);
-    }
-
-    // Generate and store session
-    const sessionToken = generateSecureKey(32);
-    const sessionDO = c.env.SESSIONS_DO.get(
-      SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken)
-    );
-
-    const saveResponse = await sessionDO.fetch(new Request('https://dummy/save', {
-      method: 'POST',
-      body: email
-    }));
-
-    if (!saveResponse.ok) {
-      throw new Error('Failed to create session');
-    }
-
-    // Set cookie with session token
-    setCookie(c, 'session', sessionToken, {
-      httpOnly: true,
-      secure: true,
-      path: '/',
-      sameSite: 'Strict',
-      maxAge: 60 * 60 * 24 // 24 hours
-    });
-
-    return c.json({ success: true });
-  } catch (error) {
-    console.error('Login error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Login failed';
-    return c.json({ error: errorMessage }, 500);
-  }
-});
-
 routes.post('/api/signup', async (c) => {
   if (c.req.method !== 'POST') {
     return c.text('Method not allowed', 405);

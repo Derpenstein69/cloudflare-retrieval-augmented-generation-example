@@ -591,6 +591,18 @@ const loginForm = `
   </form>
   <p>Don't have an account? <a href="/signup">Sign up</a></p>
 </div>
+<script>
+  document.getElementById('loginForm').addEventListener('htmx:afterRequest', function(event) {
+    const response = JSON.parse(event.detail.xhr.response);
+    if (response.success) {
+      window.location.href = response.redirect;
+    } else {
+      const errorContainer = document.getElementById('error-messages');
+      errorContainer.textContent = response.error;
+      errorContainer.style.display = 'block';
+    }
+  });
+</script>
 `;
 
 // Home template component
