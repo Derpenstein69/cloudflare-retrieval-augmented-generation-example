@@ -263,11 +263,7 @@ export function renderTemplate(template: () => string): string {
   const requestId = crypto.randomUUID();
 
   try {
-    log('DEBUG', 'Template render started', {
-      requestId,
-      templateName: template.name || 'anonymous'
-    });
-
+    log('DEBUG', 'Template render started', { requestId });
     const html = template();
     const renderTime = performance.now() - renderStart;
 
@@ -578,14 +574,15 @@ const loginForm = `
 // Enhanced templates object
 export const templates = {
   login: () => {
+    const name = 'login'; // Add name property for logging
     try {
-      Logger.log('DEBUG', 'Rendering login template');
+      log('DEBUG', `Rendering ${name} template`);
       const html = baseLayout('Login', loginForm);
-      Logger.log('DEBUG', 'Login template rendered successfully');
+      log('DEBUG', `${name} template rendered successfully`);
       return html;
     } catch (error) {
-      Logger.log('ERROR', 'Failed to render login template', { error });
+      log('ERROR', `Failed to render ${name} template`, { error });
       throw error;
     }
   }
-}
+};
