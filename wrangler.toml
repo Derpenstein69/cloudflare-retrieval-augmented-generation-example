@@ -5,11 +5,6 @@ compatibility_date = "2024-10-28"
 [ai]
 binding = "AI"
 
-[[rules]]
-type = "Text"
-globs = ["**/*.html"]
-fallthrough = true
-
 [[d1_databases]]
 binding = "DATABASE"  # Ensure the binding name matches the code
 database_name = "RUSSTCORP-AI-DATABASE"
@@ -34,11 +29,7 @@ bindings = [
 ]
 
 [[migrations]]
-tag = "v1"
-new_classes = ["SessionDO"]
-
-[[migrations]]
-tag = "v4"
+tag = "v5"
 new_classes = ["SessionDO"]
 
 [observability]
@@ -46,7 +37,4 @@ enabled = true
 head_sampling_rate = 1
 
 [vars]
-# Remove or comment out the JWT_SECRET line since we're generating it dynamically
-# JWT_SECRET = "your-secret-key-here"
-
 compatibility_flags = ["nodejs_compat"]
