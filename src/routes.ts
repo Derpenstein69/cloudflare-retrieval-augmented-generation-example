@@ -5,6 +5,7 @@ import {
   validateEmail,
   hashPassword,
   generateSecureKey,
+  validatePassword,
   SessionDO,
   // validatePasswordStrength
 } from './shared';
@@ -110,7 +111,9 @@ publicRoutes.get('/signup', (c) => {
 // Auth API routes - NO auth middleware
 publicRoutes.post('/api/login', async (c) => {
   try {
-    const { email, password } = await c.req.parseBody();
+    const formData = await c.req.parseBody();
+    const email = String(formData.email || '');
+    const password = String(formData.password || '');
     if (!email || !password || !validateEmail(email)) {
       return c.json({ error: 'Invalid credentials' }, 400);
     }
@@ -156,12 +159,8 @@ publicRoutes.post('/api/login', async (c) => {
 });
 
 publicRoutes.post('/api/signup', async (c) => {
-  if (c.req.method !== 'POST') {
-    return c.text('Method not allowed', 405);
-  }
   try {
-    const formData = await c.req.parseBody();
-    const { email, password, confirm_password } = formData;
+    const { email, password, confirm_password } = await c.req.parseBody() as { email: string, password: string, confirm_password: string };
 
     if (!email || !password) {
       return c.json({ error: "Missing email or password" }, 400);
@@ -171,25 +170,25 @@ publicRoutes.post('/api/signup', async (c) => {
       return c.json({ error: "Passwords do not match" }, 400);
     }
 
-    if (typeof password === 'string' && password.length < 8) {
-      return c.json({ error: "Password must be at least 8 characters" }, 400);
+    if (!validateEmail(email)) {
+      return c.json({ error: "Invalid email format" }, 400);
     }
 
-    const existing = await c.env.USERS_KV.get(email as string);
+    const existing = await c.env.USERS_KV.get(email);
     if (existing) {
       return c.json({ error: "Email already registered" }, 400);
     }
 
-    const hashedPassword = await hashPassword(password as string);
+    const hashedPassword = await hashPassword(password);
     const user = { email, password: hashedPassword };
-    await c.env.USERS_KV.put(email as string, JSON.stringify(user));
+    await c.env.USERS_KV.put(email, JSON.stringify(user));
 
     const sessionToken = generateSecureKey(32);
     const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
     const sessionDO = c.env.SESSIONS_DO.get(sessionId);
     await sessionDO.fetch(new Request('https://dummy/save', {
       method: 'POST',
-      body: email as string
+      body: email
     }));
 
     setCookie(c, 'session', sessionToken, {
@@ -216,7 +215,7 @@ publicRoutes.post('/api/logout', async (c) => {
 routes.route('/', publicRoutes);
 
 // Protected routes with auth middleware
-const protectedRoutes = new Hono<{ Bindings: Env }>();
+const protectedRoutes = new Hono<{ Bindings: Env, Variables: { userEmail: string, user: any } }>();
 protectedRoutes.use('*', authMiddleware);
 
 // Apply rate limiting only to protected API routes

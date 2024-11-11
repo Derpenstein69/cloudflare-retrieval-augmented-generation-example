@@ -64,7 +64,7 @@ app.use(cors({
 // Request logging middleware
 app.use('*', async (c, next) => {
   const requestId = crypto.randomUUID();
-  c.req.header('requestId', requestId);
+  c.req.raw.headers.set('requestId', requestId);
 
   Metrics.startTimer(requestId);
   Logger.log('INFO', 'Request received', {

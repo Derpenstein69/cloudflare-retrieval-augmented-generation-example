@@ -70,12 +70,8 @@ export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
 
       // Generate embedding
       const embedding = await step.do('generate embedding', async () => {
-        const embeddings = await this.env.AI.run('text-embedding-ada-002' as any, {
-          input: processedText,
-          options: {
-            temperature: 0.7,
-            maxTokens: 512
-          }
+        const embeddings = await this.env.AI.run('@cf/baai/bge-base-en-v1.5', {
+          text: [processedText]
         });
 
         const values = embeddings.data[0];
@@ -99,19 +95,17 @@ export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
           }
         }]);
 
-        if (!response?.acknowledged) {
+        if (!response) {
           throw new RAGError('Failed to insert vector', 'vectordb');
         }
       });
 
-      // Record metrics
       this.metrics.processingTime = Date.now() - startTime;
       await this.logMetrics();
 
       return {
         success: true,
         noteId: record.id,
-        metrics: this.metrics
       };
 
     } catch (error) {
@@ -131,17 +125,26 @@ export class RAGWorkflow extends WorkflowEntrypoint<Env, Params> {
   }
 
   private async rollback(noteId: string): Promise<void> {
+    const errors: Error[] = [];
+
     try {
       // Delete note
       await this.env.DATABASE.prepare('DELETE FROM notes WHERE id = ?')
         .bind(noteId)
         .run();
-
-      // Delete vector
-      await this.env.VECTOR_INDEX.remove([noteId]);
-
     } catch (error) {
-      console.error('Rollback failed:', error);
+      errors.push(error as Error);
+    }
+
+    try {
+      // Delete vector
+      await this.env.VECTOR_INDEX.deleteByIds([noteId]);
+    } catch (error) {
+      errors.push(error as Error);
+    }
+
+    if (errors.length > 0) {
+      console.error('Rollback errors:', errors);
     }
   }
 
