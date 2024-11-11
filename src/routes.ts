@@ -101,16 +101,19 @@ routes.get('/', async (c) => {
   return c.html(renderTemplate(() => templates.home()));
 });
 
-// API routes for authentication (before protected routes)
+// Public auth routes - before protected routes
 routes.post('/api/login', async (c) => {
   try {
-    const { email, password } = await c.req.json();
+    const { email, password } = await c.req.parseBody();
     if (!email || !password || !validateEmail(email)) {
       return c.json({ error: 'Invalid credentials' }, 400);
     }
 
     const userData = await c.env.USERS_KV.get(email);
-    if (!userData) return c.json({ error: 'Invalid credentials' }, 401);
+    if (!userData) {
+      return c.json({ error: 'Invalid credentials' }, 401);
+    }
+
     const user = JSON.parse(userData);
     if (!validatePassword(password, user.password)) {
       return c.json({ error: 'Invalid credentials' }, 401);
@@ -131,7 +134,6 @@ routes.post('/api/login', async (c) => {
       throw new Error('Failed to create session');
     }
 
-    // Set cookie with session token
     setCookie(c, 'session', sessionToken, {
       httpOnly: true,
       secure: true,
@@ -142,12 +144,8 @@ routes.post('/api/login', async (c) => {
 
     return c.json({ success: true, redirect: '/dashboard' });
   } catch (error) {
-    Logger.log('ERROR', 'Login failed', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-    return c.json({
-      error: error instanceof Error ? error.message : 'Login failed'
-    }, 500);
+    Logger.log('ERROR', 'Login failed', { error });
+    return c.json({ error: 'Login failed' }, 500);
   }
 });
 

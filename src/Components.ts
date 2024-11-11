@@ -598,7 +598,7 @@ const loginForm = `
       window.location.href = response.redirect;
     } else {
       const errorContainer = document.getElementById('error-messages');
-      errorContainer.textContent = response.error;
+      errorContainer.textContent = response.error || 'Login failed';
       errorContainer.style.display = 'block';
     }
   });
