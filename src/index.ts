@@ -1,10 +1,11 @@
-import { Hono } from 'hono';
+import { Context, Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { deleteCookie } from 'hono/cookie';
+import { deleteCookie, setCookie, getCookie, getSignedCookie, setSignedCookie } from 'hono/cookie';
 import routes from './routes';
 import { authMiddleware, SessionDO } from './shared';
 import { templates, errorTemplates, renderTemplate } from './Components';
 import type { Env } from './types';
+import { BlankInput } from 'hono/types';
 
 // Logger service
 class Logger {
@@ -79,6 +80,55 @@ app.get('/login', async (c) => {
   }
 });
 app.get('/signup', (c) => c.html(renderTemplate(() => templates.signup())));
+
+// Add signup API endpoint to public routes
+app.post('/api/signup', async (c) => {
+  try {
+    const { email, password, confirm_password } = await c.req.parseBody() as { email: string, password: string, confirm_password: string };
+
+    if (!email || !password) {
+      return c.json({ error: "Missing email or password" }, 400);
+    }
+
+    if (password !== confirm_password) {
+      return c.json({ error: "Passwords do not match" }, 400);
+    }
+
+    if (!validateEmail(email)) {
+      return c.json({ error: "Invalid email format" }, 400);
+    }
+
+    const existing = await c.env.USERS_KV.get(email);
+    if (existing) {
+      return c.json({ error: "Email already registered" }, 400);
+    }
+
+    const hashedPassword = await hashPassword(password);
+    const user = { email, password: hashedPassword };
+    await c.env.USERS_KV.put(email, JSON.stringify(user));
+
+    const sessionToken = generateSecureKey(32);
+    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+    await sessionDO.fetch(new Request('https://dummy/save', {
+      method: 'POST',
+      body: email
+    }));
+
+    setCookie(c, 'session', sessionToken, {
+      httpOnly: true,
+      secure: true,
+      path: '/',
+      sameSite: 'Strict',
+      maxAge: 60 * 60 * 24
+    });
+
+    return c.json({ success: true });
+  } catch (err) {
+    console.error('Signup error:', err);
+    return c.json({ error: 'Signup failed' }, 400);
+  }
+});
 
 // Enhanced error handler
 app.onError((err, c) => {
@@ -208,3 +258,24 @@ async function generateAIResponse(c: any, question: string, notes: string[]): Pr
 export { RAGWorkflow } from './workflows/rag';
 export { SessionDO };
 export default app;
+function hashPassword(password: string): Promise<string> {
+	return crypto.subtle.digest('SHA-256', new TextEncoder().encode(password))
+		.then(buffer => Array.from(new Uint8Array(buffer))
+			.map(b => b.toString(16).padStart(2, '0'))
+			.join(''));
+}
+
+function generateSecureKey(length: number): string {
+	const array = new Uint8Array(length);
+	crypto.getRandomValues(array);
+	return Array.from(array)
+		.map(b => b.toString(16).padStart(2, '0'))
+		.join('');
+}
+
+function validateEmail(email: string | File): boolean {
+	if (typeof email !== 'string') return false;
+	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+	return emailRegex.test(email);
+}
+
