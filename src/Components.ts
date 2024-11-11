@@ -824,20 +824,25 @@ export const templates = {
 
   dashboard: () => {
     try {
-      log('DEBUG', 'Rendering dashboard template');
       const html = baseLayout('Dashboard', `
         <div class="dashboard-container">
           <div class="stats-grid">
             <div class="stat-card">
               <h3>Notes</h3>
-              <div id="notes-count" hx-get="/api/stats/notes" hx-trigger="load">
-                Loading...
+              <div id="notes-count"
+                   hx-get="/api/stats/notes"
+                   hx-trigger="load"
+                   hx-indicator=".loading-notes">
+                <div class="loading-notes">Loading...</div>
               </div>
             </div>
             <div class="stat-card">
               <h3>Memory Folders</h3>
-              <div id="folders-count" hx-get="/api/stats/folders" hx-trigger="load">
-                Loading...
+              <div id="folders-count"
+                   hx-get="/api/stats/folders"
+                   hx-trigger="load"
+                   hx-indicator=".loading-folders">
+                <div class="loading-folders">Loading...</div>
               </div>
             </div>
           </div>
@@ -845,14 +850,14 @@ export const templates = {
             <h2>Recent Activity</h2>
             <div id="activity-feed"
                  hx-get="/api/activity"
-                 hx-trigger="load, every 30s"
-                 hx-target="this">
-              Loading...
+                 hx-trigger="load"
+                 hx-indicator=".loading-activity"
+                 hx-swap="innerHTML">
+              <div class="loading-activity">Loading activity...</div>
             </div>
           </div>
         </div>
       `);
-      log('DEBUG', 'Dashboard template rendered successfully');
       return html;
     } catch (error) {
       log('ERROR', 'Failed to render dashboard template', { error });

@@ -276,6 +276,51 @@ protectedRoutes.get('/profile', async (c) => {
   }
 });
 
+// Add API endpoints for dashboard data
+protectedRoutes.get('/api/stats/notes', async (c) => {
+  try {
+    const userEmail = c.get('userEmail');
+    const { results } = await c.env.DATABASE.prepare(
+      'SELECT COUNT(*) as count FROM notes WHERE userEmail = ?'
+    ).bind(userEmail).all();
+    return c.json({ count: results[0].count });
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch notes count' }, 500);
+  }
+});
+
+protectedRoutes.get('/api/stats/folders', async (c) => {
+  try {
+    const userEmail = c.get('userEmail');
+    const { results } = await c.env.DATABASE.prepare(
+      'SELECT COUNT(*) as count FROM memory_folders WHERE userEmail = ?'
+    ).bind(userEmail).all();
+    return c.json({ count: results[0].count });
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch folders count' }, 500);
+  }
+});
+
+protectedRoutes.get('/api/activity', async (c) => {
+  try {
+    const userEmail = c.get('userEmail');
+    const { results } = await c.env.DATABASE.prepare(`
+      SELECT * FROM (
+        SELECT 'note' as type, created_at, text as content FROM notes
+        WHERE userEmail = ?
+        UNION ALL
+        SELECT 'folder' as type, created_at, name as content FROM memory_folders
+        WHERE userEmail = ?
+      ) activity
+      ORDER BY created_at DESC LIMIT 10
+    `).bind(userEmail, userEmail).all();
+
+    return c.json({ activities: results });
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch activity' }, 500);
+  }
+});
+
 // Mount protected routes AFTER public routes
 routes.route('/', protectedRoutes);
 

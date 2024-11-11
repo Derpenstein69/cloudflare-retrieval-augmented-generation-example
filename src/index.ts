@@ -6,7 +6,7 @@ import { authMiddleware, SessionDO } from './shared';
 import { templates, errorTemplates, renderTemplate } from './Components';
 import type { Env } from './types';
 import { BlankInput } from 'hono/types';
-
+import { sharedStyles } from './Components';
 // Logger service
 class Logger {
   static log(level: 'DEBUG' | 'INFO' | 'ERROR' | 'WARN', message: string, data?: any) {
@@ -67,6 +67,16 @@ app.use('*', cors({
   maxAge: 86400,
   // preflightContinue: false // Removed as it does not exist in CORSOptions
 }));
+
+// Add styles.css route before auth middleware
+app.get('/styles.css', (c) => {
+  return c.text(sharedStyles, {
+    headers: {
+      'Content-Type': 'text/css',
+      'Cache-Control': 'public, max-age=86400',
+    },
+  });
+});
 
 // Public routes BEFORE any other middleware
 app.get('/login', async (c) => {
