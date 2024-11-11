@@ -121,15 +121,15 @@ publicRoutes.post('/api/login', async (c) => {
     }
 
     const user = JSON.parse(userData);
-    if (!validatePassword(password, user.password)) {
+    // Add await here
+    const isValidPassword = await validatePassword(password, user.password);
+    if (!isValidPassword) {
       return c.json({ error: 'Invalid credentials' }, 401);
     }
 
-    // Generate and store session
     const sessionToken = generateSecureKey(32);
-    const sessionDO = c.env.SESSIONS_DO.get(
-      SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken)
-    );
+    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
 
     const saveResponse = await sessionDO.fetch(new Request('https://dummy/save', {
       method: 'POST',
@@ -145,7 +145,7 @@ publicRoutes.post('/api/login', async (c) => {
       secure: true,
       path: '/',
       sameSite: 'Strict',
-      maxAge: 60 * 60 * 24 // 24 hours
+      maxAge: 60 * 60 * 24
     });
 
     return c.json({ success: true, redirect: '/dashboard' });

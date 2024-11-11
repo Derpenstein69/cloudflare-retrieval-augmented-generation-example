@@ -38,6 +38,19 @@ export async function hashPassword(password: string): Promise<string> {
   }
 }
 
+export async function validatePassword(input: string, hashedPassword: string): Promise<boolean> {
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(input);
+    const inputHash = await crypto.subtle.digest('SHA-256', data);
+    const inputHashBase64 = btoa(String.fromCharCode(...new Uint8Array(inputHash)));
+    return inputHashBase64 === hashedPassword;
+  } catch (error) {
+    console.error('Password validation error:', error);
+    return false;
+  }
+}
+
 export function generateSecureKey(length: number = 32): string {
   try {
     const array = new Uint8Array(length);

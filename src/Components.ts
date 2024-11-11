@@ -428,10 +428,9 @@ export class SessionDO {
     this.env = env;
   }
 
-  async fetch(request: Request): Promise<Response> {
+	async fetch(request: Request): Promise<Response> {
     try {
       const url = new URL(request.url);
-
       switch (url.pathname) {
         case '/save':
           return await this.handleSave(request);
@@ -579,30 +578,28 @@ const loginForm = `
   <h1>Login</h1>
   <div id="error-messages" class="error-container" style="display: none;"></div>
   <form id="loginForm" hx-post="/api/login" hx-target="#error-messages">
-    <div class="form-group">
-      <label for="email">Email</label>
-      <input type="email" id="email" name="email" required>
-    </div>
-    <div class="form-group">
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password" required>
-    </div>
-    <button type="submit">Login</button>
+    <!-- ... form fields ... -->
   </form>
-  <p>Don't have an account? <a href="/signup">Sign up</a></p>
+  <script>
+    document.getElementById('loginForm').addEventListener('htmx:afterRequest', function(event) {
+      try {
+        const response = JSON.parse(event.detail.xhr.response);
+        if (response.success) {
+          window.location.href = response.redirect;
+        } else {
+          const errorContainer = document.getElementById('error-messages');
+          errorContainer.textContent = response.error || 'Login failed';
+          errorContainer.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        const errorContainer = document.getElementById('error-messages');
+        errorContainer.textContent = 'An unexpected error occurred';
+        errorContainer.style.display = 'block';
+      }
+    });
+  </script>
 </div>
-<script>
-  document.getElementById('loginForm').addEventListener('htmx:afterRequest', function(event) {
-    const response = JSON.parse(event.detail.xhr.response);
-    if (response.success) {
-      window.location.href = response.redirect;
-    } else {
-      const errorContainer = document.getElementById('error-messages');
-      errorContainer.textContent = response.error || 'Login failed';
-      errorContainer.style.display = 'block';
-    }
-  });
-</script>
 `;
 
 // Home template component
