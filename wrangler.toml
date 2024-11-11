@@ -29,7 +29,7 @@ bindings = [
 ]
 
 [[migrations]]
-tag = "v5"
+tag = "v2"
 new_classes = ["SessionDO"]
 
 [observability]
