@@ -1,4 +1,6 @@
-import { Context } from 'hono';
+import { Context, Hono } from 'hono';
+
+export const protectedRoutes = new Hono();
 
 // Sanitize Middleware
 const sanitizeHtml = (input: string): string => {
@@ -78,3 +80,34 @@ export const rateLimit = (limit: number = 100, windowMs: number = 60000) => {
     }
   };
 };
+
+export const memoryAccessControl = async (c: Context, next: () => Promise<void>) => {
+  try {
+    const userEmail = c.get('userEmail');
+    const folderId = c.req.param('id');
+
+    if (!userEmail) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    if (folderId) {
+      const folder = await c.env.DATABASE.prepare(
+        'SELECT * FROM memory_folders WHERE id = ? AND userEmail = ?'
+      ).bind(folderId, userEmail).first();
+
+      if (!folder) {
+        return c.json({ error: 'Folder not found or access denied' }, 404);
+      }
+
+      c.set('folder', folder);
+    }
+
+    await next();
+  } catch (error) {
+    console.error('Access control error:', error);
+    return c.json({ error: 'Access control check failed' }, 500);
+  }
+};
+
+// Apply middleware to memory routes
+protectedRoutes.use('/api/memory/*', memoryAccessControl);

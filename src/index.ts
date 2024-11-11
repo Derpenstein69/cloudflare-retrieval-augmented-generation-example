@@ -288,3 +288,34 @@ function validateEmail(email: string | File): boolean {
 	return emailRegex.test(email);
 }
 
+export interface MemoryFolder {
+  id: string;
+  name: string;
+  userEmail: string;
+  description?: string;
+  isPrivate: boolean;
+  tags?: string[];
+  parentId?: string;
+  sharing: {
+    isPublic: boolean;
+    sharedWith: string[];
+    permissions: string[]; // read, write, delete
+  };
+  metadata: {
+    noteCount: number;
+    lastAccessed: Date;
+    vectorId?: string;
+  };
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface MemoryState {
+  folders: MemoryFolder[];
+  loading: boolean;
+  error: string | null;
+  currentFolder: string | null;
+  breadcrumbs: MemoryFolder[];
+}
+

@@ -1,17 +1,19 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
-import { rateLimit, validate, sanitize } from './middleware';
+import { rateLimit, sanitize, memoryAccessControl } from './middleware';
 import {
   validateEmail,
   hashPassword,
   generateSecureKey,
   validatePassword,
   SessionDO,
+  AppError
   // validatePasswordStrength
 } from './shared';
 import { templates, renderTemplate, errorTemplates } from './Components';
 import type { Env } from './types';
 import { Logger } from './shared';
+import { MemoryService } from './services/memoryService';
 
 // Enhanced error mapping
 
@@ -74,10 +76,6 @@ async function renewSession(c: any, token: string, email: string): Promise<void>
 
 // Error handling middleware
 
-function errorHandler(error: Error, context: string): Response {
-  console.error(`Error during ${context}:`, error);
-  return new Response('Internal Server Error', { status: 500 });
-}
 
 const routes = new Hono<{ Bindings: Env }>();
 
@@ -221,6 +219,7 @@ protectedRoutes.use('*', authMiddleware);
 // Apply rate limiting only to protected API routes
 protectedRoutes.use('/api/*', rateLimit());
 protectedRoutes.use('/api/*', sanitize());
+protectedRoutes.use('/api/memory/*', memoryAccessControl);
 
 protectedRoutes.get('/dashboard', (c) => {
   try {
@@ -321,6 +320,76 @@ protectedRoutes.get('/api/activity', async (c) => {
   }
 });
 
+// Memory routes
+protectedRoutes.get('/api/memory/folders', async (c) => {
+  try {
+    const userEmail = c.get('userEmail');
+    const parentId = c.req.query('parentId');
+    const memoryService = new MemoryService(c.env);
+    const folders = await memoryService.getFolders(userEmail, parentId);
+    return c.json({ folders });
+  } catch (error: unknown) {
+    log('ERROR', 'Failed to fetch memory folders', { error });
+    const err = error as Error;
+    return c.json({
+      error: error instanceof AppError ? (error as AppError).message : 'Failed to fetch folders',
+      code: error instanceof AppError ? (error as AppError).code : 'UNKNOWN_ERROR'
+    }, { status: error instanceof AppError ? (error as AppError).status : 500 });
+  }
+});
+
+protectedRoutes.post('/api/memory/folders', async (c) => {
+  try {
+    const userEmail = c.get('userEmail');
+    const data = await c.req.json();
+    const memoryService = new MemoryService(c.env);
+    const folder = await memoryService.createFolder(userEmail, data);
+    return c.json({ folder });
+  } catch (error: unknown) {
+    log('ERROR', 'Failed to create memory folder', { error });
+    const err = error as Error;
+    return c.json({
+      error: error instanceof AppError ? (error as AppError).message : err.message || 'Failed to create folder',
+      code: error instanceof AppError ? (error as AppError).code : 'UNKNOWN_ERROR'
+    }, { status: error instanceof AppError ? (error as AppError).status : 500 });
+  }
+});
+
+protectedRoutes.patch('/api/memory/folders/:id', async (c) => {
+  try {
+    const userEmail = c.get('userEmail');
+    const id = c.req.param('id');
+    const data = await c.req.json();
+    const memoryService = new MemoryService(c.env);
+    const folder = await memoryService.updateFolder(id, userEmail, data);
+    return c.json({ folder });
+  } catch (error: unknown) {
+    log('ERROR', 'Failed to update memory folder', { error });
+    const err = error as Error;
+    return c.json({
+      error: error instanceof AppError ? (error as AppError).message : 'Failed to update folder',
+      code: error instanceof AppError ? (error as AppError).code : 'UNKNOWN_ERROR'
+    }, { status: error instanceof AppError ? (error as AppError).status : 500 });
+      }
+    });
+
+protectedRoutes.delete('/api/memory/folders/:id', async (c) => {
+  try {
+    const userEmail = c.get('userEmail');
+    const id = c.req.param('id');
+    const memoryService = new MemoryService(c.env);
+    await memoryService.deleteFolder(id, userEmail);
+    return c.json({ success: true });
+  } catch (error: unknown) {
+    log('ERROR', 'Failed to delete memory folder', { error });
+    const err = error as Error;
+    return c.json({
+      error: error instanceof AppError ? (error as AppError).message : 'Failed to delete folder',
+      code: error instanceof AppError ? (error as AppError).code : 'UNKNOWN_ERROR'
+    }, { status: error instanceof AppError ? (error as AppError).status : 500 });
+  }
+});
+
 // Mount protected routes AFTER public routes
 routes.route('/', protectedRoutes);
 
@@ -342,5 +411,39 @@ routes.onError((err, c) => {
 export default routes;
 function log(level: 'DEBUG' | 'INFO' | 'ERROR' | 'WARN', message: string, data?: any) {
 	Logger.log(level, message, data);
+}
+
+templates.memory = () => {
+  return baseLayout('Memory', '<div id="folder-list"></div>');
+};
+
+function baseLayout(title: string, content: string): string {
+	return `
+<!DOCTYPE html>
+<html lang="en">
+templates.memory = () => {
+  return baseLayout('Memory', '<div id="folder-list"></div>');
+};
+	<title>${title}</title>
+	<script src="https://unpkg.com/htmx.org"></script>
+	<link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+	<nav class="main-nav">
+		<a href="/dashboard">Dashboard</a>
+		<a href="/notes">Notes</a>
+		<a href="/memory">Memory</a>
+		<a href="/settings">Settings</a>
+		<a href="/profile">Profile</a>
+		<form action="/api/logout" method="POST" style="display: inline;">
+			<button type="submit">Logout</button>
+		</form>
+	</nav>
+	<main class="container">
+		${content}
+	</main>
+</body>
+</html>
+`;
 }
 

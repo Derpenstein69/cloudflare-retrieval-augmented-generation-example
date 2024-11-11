@@ -37,6 +37,10 @@ bindings = [
 tag = "v1"
 new_classes = ["SessionDO"]
 
+[[migrations]]
+tag = "v4"
+new_classes = ["SessionDO"]
+
 [observability]
 enabled = true
 head_sampling_rate = 1
