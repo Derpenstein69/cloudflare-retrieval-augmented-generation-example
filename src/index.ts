@@ -31,9 +31,32 @@ class Metrics {
   }
 }
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<{ Bindings: Env; Variables: Env['Variables'] }>();
 
-// Configure CORS first, before any other middleware or routes
+// 1. Request logging middleware BEFORE CORS
+app.use('*', async (c, next) => {
+  const requestId = crypto.randomUUID();
+  // Store requestId in context variables
+  c.set('requestId', requestId);
+
+  Metrics.startTimer(requestId);
+  Logger.log('INFO', 'Request received', {
+    id: requestId,
+    method: c.req.method,
+    path: c.req.path,
+  });
+
+  await next();
+
+  const duration = Metrics.endTimer(requestId);
+  Logger.log('INFO', 'Request completed', {
+    id: requestId,
+    duration,
+    status: c.res.status,
+  });
+});
+
+// 2. CORS middleware
 app.use('*', cors({
   origin: '*', // Or specify your domains: ['http://localhost:8787', 'https://yourdomain.com']
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -41,14 +64,8 @@ app.use('*', cors({
   exposeHeaders: ['Content-Length'],
   credentials: true,
   maxAge: 86400,
+  // preflightContinue: false // Removed as it does not exist in CORSOptions
 }));
-
-// Then add logging middleware
-app.use('*', async (c, next) => {
-  console.log(`Request: ${c.req.method} ${c.req.url}`);
-  await next();
-  console.log(`Response: ${c.res.status}`);
-});
 
 // Public routes BEFORE any other middleware
 app.get('/login', async (c) => {
@@ -63,33 +80,9 @@ app.get('/login', async (c) => {
 });
 app.get('/signup', (c) => c.html(renderTemplate(() => templates.signup())));
 
-// Request logging middleware
-app.use('*', async (c, next) => {
-  const requestId = crypto.randomUUID();
-  c.req.raw.headers.set('requestId', requestId);
-
-  Metrics.startTimer(requestId);
-  Logger.log('INFO', 'Request received', {
-    id: requestId,
-    method: c.req.method,
-    path: c.req.path,
-  });
-
-  try {
-    await next();
-  } finally {
-    const duration = Metrics.endTimer(requestId);
-    Logger.log('INFO', 'Request completed', {
-      id: requestId,
-      duration,
-      status: c.res.status,
-    });
-  }
-});
-
 // Enhanced error handler
 app.onError((err, c) => {
-  const requestId = c.req.header('requestId');
+  const requestId = c.get('requestId');
   Logger.log('ERROR', 'Application error', {
     id: requestId,
     error: err.message,

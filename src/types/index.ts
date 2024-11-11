@@ -209,6 +209,13 @@ export type Env = {
     pass: string;
   };
   S3_BUCKET: R2Bucket;
+
+  // Add Variables type for context variables
+  Variables: {
+    requestId: string;
+    userEmail?: string;
+    session?: any; // You can make this more specific based on your session type
+  };
 };
 
 export type Params = {
