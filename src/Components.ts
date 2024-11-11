@@ -357,6 +357,18 @@ export const errorHandler = async (err: Error, c: Context<{ Bindings: Env }>) =>
     path: c.req.path,
     method: c.req.method
   });
+
+  // Handle CORS errors specifically
+  if (err.message.includes('immutable headers')) {
+    return new Response('Internal Server Error', {
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'text/plain'
+      }
+    });
+  }
+
   if (err instanceof AppError) {
     return c.json({
       error: err.message,

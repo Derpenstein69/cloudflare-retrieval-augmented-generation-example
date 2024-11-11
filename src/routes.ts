@@ -109,11 +109,12 @@ publicRoutes.get('/signup', (c) => {
 });
 
 // Auth API routes - NO auth middleware
-publicRoutes.post('/api/login', async (c) => {
+publicRoutes.post('/api/login', rateLimit(10, 60000), async (c) => {
   try {
     const formData = await c.req.parseBody();
     const email = String(formData.email || '');
     const password = String(formData.password || '');
+
     if (!email || !password || !validateEmail(email)) {
       return c.json({ error: 'Invalid credentials' }, 400);
     }
@@ -124,7 +125,6 @@ publicRoutes.post('/api/login', async (c) => {
     }
 
     const user = JSON.parse(userData);
-    // Add await here
     const isValidPassword = await validatePassword(password, user.password);
     if (!isValidPassword) {
       return c.json({ error: 'Invalid credentials' }, 401);
@@ -147,13 +147,13 @@ publicRoutes.post('/api/login', async (c) => {
       httpOnly: true,
       secure: true,
       path: '/',
-      sameSite: 'Strict',
+      sameSite: 'Lax', // Changed from Strict to Lax for better compatibility
       maxAge: 60 * 60 * 24
     });
 
     return c.json({ success: true, redirect: '/dashboard' });
   } catch (error) {
-    Logger.log('ERROR', 'Login failed', { error });
+    log('ERROR', 'Login failed', { error });
     return c.json({ error: 'Login failed' }, 500);
   }
 });
@@ -295,3 +295,7 @@ routes.onError((err, c) => {
 });
 
 export default routes;
+function log(level: 'DEBUG' | 'INFO' | 'ERROR' | 'WARN', message: string, data?: any) {
+	Logger.log(level, message, data);
+}
+

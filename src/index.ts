@@ -33,7 +33,17 @@ class Metrics {
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Add basic logging middleware first
+// Add CORS middleware first
+app.use('*', cors({
+  origin: ['http://localhost:8787', 'https://russtcorp.net'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  exposeHeaders: ['Content-Length', 'X-Request-Id'],
+  credentials: true,
+  maxAge: 86400
+}));
+
+// Then add logging middleware
 app.use('*', async (c, next) => {
   console.log(`Request: ${c.req.method} ${c.req.url}`);
   await next();
@@ -52,14 +62,6 @@ app.get('/login', async (c) => {
   }
 });
 app.get('/signup', (c) => c.html(renderTemplate(() => templates.signup())));
-
-// Improved CORS configuration
-app.use(cors({
-  origin: ['http://localhost:8787', 'https://yourdomain.com'],
-  credentials: true,
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  maxAge: 86400,
-}));
 
 // Request logging middleware
 app.use('*', async (c, next) => {
