@@ -88,11 +88,7 @@ routes.use('*', async (c, next) => {
   await next();
 });
 
-// Rate limiting for API routes
-routes.use('/api/*', rateLimit());
-routes.use('/api/*', sanitize());
-
-// Public routes first
+// Public routes first - BEFORE any auth middleware
 routes.get('/', async (c) => {
   const sessionToken = getCookie(c, 'session');
   if (sessionToken) {
@@ -101,7 +97,15 @@ routes.get('/', async (c) => {
   return c.html(renderTemplate(() => templates.home()));
 });
 
-// Public auth routes - before protected routes
+routes.get('/login', (c) => {
+  return c.html(renderTemplate(() => templates.login()));
+});
+
+routes.get('/signup', (c) => {
+  return c.html(renderTemplate(() => templates.signup()));
+});
+
+// Public API routes
 routes.post('/api/login', async (c) => {
   try {
     const { email, password } = await c.req.parseBody();
@@ -149,9 +153,70 @@ routes.post('/api/login', async (c) => {
   }
 });
 
+routes.post('/api/signup', async (c) => {
+  if (c.req.method !== 'POST') {
+    return c.text('Method not allowed', 405);
+  }
+  try {
+    const formData = await c.req.parseBody();
+    const { email, password, confirm_password } = formData;
+
+    if (!email || !password) {
+      return c.json({ error: "Missing email or password" }, 400);
+    }
+
+    if (password !== confirm_password) {
+      return c.json({ error: "Passwords do not match" }, 400);
+    }
+
+    if (typeof password === 'string' && password.length < 8) {
+      return c.json({ error: "Password must be at least 8 characters" }, 400);
+    }
+
+    const existing = await c.env.USERS_KV.get(email as string);
+    if (existing) {
+      return c.json({ error: "Email already registered" }, 400);
+    }
+
+    const hashedPassword = await hashPassword(password as string);
+    const user = { email, password: hashedPassword };
+    await c.env.USERS_KV.put(email as string, JSON.stringify(user));
+
+    const sessionToken = generateSecureKey(32);
+    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
+    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
+    await sessionDO.fetch(new Request('https://dummy/save', {
+      method: 'POST',
+      body: email as string
+    }));
+
+    setCookie(c, 'session', sessionToken, {
+      httpOnly: true,
+      secure: true,
+      path: '/',
+      sameSite: 'Strict',
+      maxAge: 60 * 60 * 24
+    });
+
+    return c.json({ success: true });
+  } catch (err) {
+    console.error('Signup error:', err);
+    return c.json({ error: 'Signup failed' }, 400);
+  }
+});
+
+routes.post('/api/logout', async (c) => {
+  deleteCookie(c, 'session', { path: '/' });
+  return c.redirect('/');
+});
+
 // Protected routes with auth middleware
 const protectedRoutes = new Hono<{ Bindings: Env }>();
 protectedRoutes.use('*', authMiddleware);
+
+// Apply rate limiting only to protected API routes
+protectedRoutes.use('/api/*', rateLimit());
+protectedRoutes.use('/api/*', sanitize());
 
 protectedRoutes.get('/dashboard', (c) => {
   try {
@@ -209,64 +274,6 @@ protectedRoutes.get('/profile', async (c) => {
 
 // Mount protected routes
 routes.route('/', protectedRoutes);
-
-// API routes
-routes.post('/api/signup', async (c) => {
-  if (c.req.method !== 'POST') {
-    return c.text('Method not allowed', 405);
-  }
-  try {
-    const formData = await c.req.parseBody();
-    const { email, password, confirm_password } = formData;
-
-    if (!email || !password) {
-      return c.json({ error: "Missing email or password" }, 400);
-    }
-
-    if (password !== confirm_password) {
-      return c.json({ error: "Passwords do not match" }, 400);
-    }
-
-    if (typeof password === 'string' && password.length < 8) {
-      return c.json({ error: "Password must be at least 8 characters" }, 400);
-    }
-
-    const existing = await c.env.USERS_KV.get(email as string);
-    if (existing) {
-      return c.json({ error: "Email already registered" }, 400);
-    }
-
-    const hashedPassword = await hashPassword(password as string);
-    const user = { email, password: hashedPassword };
-    await c.env.USERS_KV.put(email as string, JSON.stringify(user));
-
-    const sessionToken = generateSecureKey(32);
-    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
-    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
-    await sessionDO.fetch(new Request('https://dummy/save', {
-      method: 'POST',
-      body: email as string
-    }));
-
-    setCookie(c, 'session', sessionToken, {
-      httpOnly: true,
-      secure: true,
-      path: '/',
-      sameSite: 'Strict',
-      maxAge: 60 * 60 * 24
-    });
-
-    return c.json({ success: true });
-  } catch (err) {
-    console.error('Signup error:', err);
-    return c.json({ error: 'Signup failed' }, 400);
-  }
-});
-
-routes.post('/api/logout', async (c) => {
-  deleteCookie(c, 'session', { path: '/' });
-  return c.redirect('/');
-});
 
 // Error handlers
 routes.notFound((c) => {
