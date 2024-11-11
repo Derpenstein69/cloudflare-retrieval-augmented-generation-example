@@ -7,7 +7,7 @@ export class MemoryService {
   async createFolder(userEmail: string, data: Partial<MemoryFolder>): Promise<MemoryFolder> {
     try {
       // Generate vector embedding for folder content
-      const embedding = await this.env.AI.run('@cf/baai/bge-base-en-v1.5', {
+      const embedding = await this.env.AI.run('@cf/baai/bge-large-en-v1.5', {
         text: [data.description || data.name]
       });
 
@@ -22,7 +22,7 @@ export class MemoryService {
         }
       }]);
 
-      if (!vectorResponse) {
+      if (!vectorResponse || !Array.isArray(vectorResponse)) {
         throw new AppError('Failed to create vector embedding', 'VECTOR_ERROR');
       }
 
