@@ -338,18 +338,18 @@ protectedRoutes.get('/api/memory/folders', async (c) => {
   }
 });
 
-protectedRoutes.post('/api/memory/folders', async (c) => {
+protectedRoutes.post('/api/notes', async (c) => {
   try {
     const userEmail = c.get('userEmail');
     const data = await c.req.json();
-    const memoryService = new MemoryService(c.env);
-    const folder = await memoryService.createFolder(userEmail, data);
-    return c.json({ folder });
+    const noteService = new NoteService(c.env);
+    const note = await noteService.createNote(userEmail, data);
+    return c.json({ note });
   } catch (error: unknown) {
-    log('ERROR', 'Failed to create memory folder', { error });
+    log('ERROR', 'Failed to create note', { error });
     const err = error as Error;
     return c.json({
-      error: error instanceof AppError ? (error as AppError).message : err.message || 'Failed to create folder',
+      error: error instanceof AppError ? (error as AppError).message : err.message || 'Failed to create note',
       code: error instanceof AppError ? (error as AppError).code : 'UNKNOWN_ERROR'
     }, { status: error instanceof AppError ? (error as AppError).status : 500 });
   }
