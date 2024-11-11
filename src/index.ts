@@ -242,6 +242,8 @@ async function fetchRelevantNotes(c: any, vectorQuery: any): Promise<string[]> {
   return results?.map((note: { text: string }) => note.text) || [];
 }
 
+app.route('/api', protectedRoutes);
+
 async function generateAIResponse(c: any, question: string, notes: string[]): Promise<string> {
   const contextMessage = notes.length
     ? `Context:\n${notes.map(note => `- ${note}`).join("\n")}`

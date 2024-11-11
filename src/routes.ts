@@ -390,6 +390,23 @@ protectedRoutes.delete('/api/memory/folders/:id', async (c) => {
   }
 });
 
+protectedRoutes.post('/api/notes', async (c) => {
+  try {
+    const userEmail = c.get('userEmail');
+    const data = await c.req.json();
+    const noteService = new NoteService(c.env);
+    const note = await noteService.createNote(userEmail, data);
+    return c.json({ note });
+  } catch (error: unknown) {
+    log('ERROR', 'Failed to create note', { error });
+    const err = error as Error;
+    return c.json({
+      error: error instanceof AppError ? (error as AppError).message : err.message || 'Failed to create note',
+      code: error instanceof AppError ? (error as AppError).code : 'UNKNOWN_ERROR'
+    }, { status: error instanceof AppError ? (error as AppError).status : 500 });
+  }
+});
+
 // Mount protected routes AFTER public routes
 routes.route('/', protectedRoutes);
 
