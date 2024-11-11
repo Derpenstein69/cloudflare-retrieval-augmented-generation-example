@@ -80,7 +80,7 @@ function errorHandler(error: Error, context: string): Response {
 
 const routes = new Hono<{ Bindings: Env }>();
 
-// Middleware order is important - most general first
+// Logging middleware
 routes.use('*', async (c, next) => {
   Logger.log('INFO', `Request: ${c.req.method} ${c.req.path}`, {
     requestId: crypto.randomUUID()
@@ -88,8 +88,10 @@ routes.use('*', async (c, next) => {
   await next();
 });
 
-// Public routes first - BEFORE any auth middleware
-routes.get('/', async (c) => {
+// Public routes - NO auth middleware
+const publicRoutes = new Hono<{ Bindings: Env }>();
+
+publicRoutes.get('/', async (c) => {
   const sessionToken = getCookie(c, 'session');
   if (sessionToken) {
     return c.redirect('/dashboard');
@@ -97,16 +99,16 @@ routes.get('/', async (c) => {
   return c.html(renderTemplate(() => templates.home()));
 });
 
-routes.get('/login', (c) => {
+publicRoutes.get('/login', (c) => {
   return c.html(renderTemplate(() => templates.login()));
 });
 
-routes.get('/signup', (c) => {
+publicRoutes.get('/signup', (c) => {
   return c.html(renderTemplate(() => templates.signup()));
 });
 
-// Public API routes
-routes.post('/api/login', async (c) => {
+// Auth API routes - NO auth middleware
+publicRoutes.post('/api/login', async (c) => {
   try {
     const { email, password } = await c.req.parseBody();
     if (!email || !password || !validateEmail(email)) {
@@ -153,7 +155,7 @@ routes.post('/api/login', async (c) => {
   }
 });
 
-routes.post('/api/signup', async (c) => {
+publicRoutes.post('/api/signup', async (c) => {
   if (c.req.method !== 'POST') {
     return c.text('Method not allowed', 405);
   }
@@ -205,10 +207,13 @@ routes.post('/api/signup', async (c) => {
   }
 });
 
-routes.post('/api/logout', async (c) => {
+publicRoutes.post('/api/logout', async (c) => {
   deleteCookie(c, 'session', { path: '/' });
   return c.redirect('/');
 });
+
+// Mount public routes FIRST
+routes.route('/', publicRoutes);
 
 // Protected routes with auth middleware
 const protectedRoutes = new Hono<{ Bindings: Env }>();
@@ -272,7 +277,7 @@ protectedRoutes.get('/profile', async (c) => {
   }
 });
 
-// Mount protected routes
+// Mount protected routes AFTER public routes
 routes.route('/', protectedRoutes);
 
 // Error handlers
