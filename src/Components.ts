@@ -49,6 +49,7 @@ const themeConfig = {
 import { Hono } from 'hono';
 
 const publicRoutes = new Hono<{ Bindings: Env }>();
+const protectedRoutes = new Hono<{ Bindings: Env; Variables: { userEmail: string } }>();
 
 // Shared styles - keep only one declaration
 export const sharedStyles = `
@@ -832,7 +833,8 @@ export const templates = {
               <div id="notes-count"
                    hx-get="/api/stats/notes"
                    hx-trigger="load"
-                   hx-indicator=".loading-notes">
+                   hx-indicator=".loading-notes"
+                   hx-swap="innerHTML">
                 <div class="loading-notes">Loading...</div>
               </div>
             </div>
@@ -841,7 +843,8 @@ export const templates = {
               <div id="folders-count"
                    hx-get="/api/stats/folders"
                    hx-trigger="load"
-                   hx-indicator=".loading-folders">
+                   hx-indicator=".loading-folders"
+                   hx-swap="innerHTML">
                 <div class="loading-folders">Loading...</div>
               </div>
             </div>
@@ -856,6 +859,39 @@ export const templates = {
               <div class="loading-activity">Loading activity...</div>
             </div>
           </div>
+          <script>
+            document.body.addEventListener('htmx:afterRequest', function(evt) {
+              const target = evt.detail.elt;
+              if (!evt.detail.successful) {
+                target.innerHTML = 'Failed to load data';
+                console.error('Request failed:', evt.detail.xhr.responseText);
+                return;
+              }
+
+              try {
+                const response = JSON.parse(evt.detail.xhr.responseText);
+                if (target.id === 'notes-count') {
+                  target.innerHTML = response.count || 0;
+                } else if (target.id === 'folders-count') {
+                  target.innerHTML = response.count || 0;
+                } else if (target.id === 'activity-feed') {
+                  const activities = response.activities || [];
+                  target.innerHTML = activities.length
+                    ? activities.map(function(activity) {
+                        return '<div class="activity-item">' +
+                               '<span class="activity-type">' + activity.type + '</span>' +
+                               '<span class="activity-date">' + new Date(activity.created_at).toLocaleDateString() + '</span>' +
+                               '<p class="activity-content">' + activity.content + '</p>' +
+                               '</div>';
+                      }).join('')
+                    : '<p>No recent activity</p>';
+                }
+              } catch (error) {
+                console.error('Failed to process response:', error);
+                target.innerHTML = 'Error processing data';
+              }
+            });
+          </script>
         </div>
       `);
       return html;
@@ -1238,5 +1274,54 @@ publicRoutes.post('/api/login', createRateLimiter(new RateLimiter(10, 60000)), a
   } catch (error) {
     log('ERROR', 'Login failed', { error });
     return c.json({ error: 'Login failed' }, 500);
+  }
+});
+
+protectedRoutes.get('/api/stats/notes', async (c: Context<{ Bindings: Env; Variables: { userEmail: string } }>) => {
+  try {
+    const userEmail = c.get('userEmail');
+    if (!userEmail) {
+      return c.json({ error: 'User not authenticated' }, 401);
+    }
+
+    const result = await c.env.DATABASE.prepare(
+      'SELECT COUNT(*) as count FROM notes WHERE userEmail = ?'
+    ).bind(userEmail).first<{ count: number }>();
+
+    return c.json({ count: result?.count ?? 0 });
+  } catch (error) {
+    log('ERROR', 'Failed to fetch notes count', { error });
+    return c.json({ error: 'Failed to fetch notes count', count: 0 }, 500);
+  }
+});
+
+protectedRoutes.get('/api/activity', async (c: Context<{ Bindings: Env; Variables: { userEmail: string } }>) => {
+  try {
+    const userEmail = c.get('userEmail');
+    if (!userEmail) {
+      return c.json({ error: 'User not authenticated', activities: [] }, 401);
+    }
+
+    interface ActivityResult {
+      type: 'note' | 'folder';
+      created_at: string;
+      content: string;
+    }
+
+    const { results } = await c.env.DATABASE.prepare(`
+      SELECT * FROM (
+        SELECT 'note' as type, created_at, text as content FROM notes
+        WHERE userEmail = ?
+        UNION ALL
+        SELECT 'folder' as type, created_at, name as content FROM memory_folders
+        WHERE userEmail = ?
+      ) activity
+      ORDER BY created_at DESC LIMIT 10
+    `).bind(userEmail, userEmail).all<ActivityResult>();
+
+    return c.json({ activities: results ?? [] });
+  } catch (error) {
+    log('ERROR', 'Failed to fetch activity', { error });
+    return c.json({ error: 'Failed to fetch activity', activities: [] }, 500);
   }
 });

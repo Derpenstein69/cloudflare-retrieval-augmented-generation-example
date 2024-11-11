@@ -59,13 +59,12 @@ app.use('*', async (c, next) => {
 
 // 2. CORS middleware
 app.use('*', cors({
-  origin: '*', // Or specify your domains: ['http://localhost:8787', 'https://yourdomain.com']
+  origin: ['http://localhost:8787', 'https://russtcorp.net'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   exposeHeaders: ['Content-Length'],
   credentials: true,
   maxAge: 86400,
-  // preflightContinue: false // Removed as it does not exist in CORSOptions
 }));
 
 // Add styles.css route before auth middleware
