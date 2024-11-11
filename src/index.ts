@@ -33,14 +33,14 @@ class Metrics {
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Add CORS middleware first
+// Configure CORS first, before any other middleware or routes
 app.use('*', cors({
-  origin: ['http://localhost:8787', 'https://russtcorp.net'],
+  origin: '*', // Or specify your domains: ['http://localhost:8787', 'https://yourdomain.com']
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
-  exposeHeaders: ['Content-Length', 'X-Request-Id'],
+  exposeHeaders: ['Content-Length'],
   credentials: true,
-  maxAge: 86400
+  maxAge: 86400,
 }));
 
 // Then add logging middleware
