@@ -30,7 +30,6 @@ bindings = [
 
 [[migrations]]
 tag = "v2"
-new_classes = ["SessionDO"]
 
 [observability]
 enabled = true
