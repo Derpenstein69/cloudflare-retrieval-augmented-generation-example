@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { Context, Next } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { rateLimit, sanitize, memoryAccessControl } from './middleware';
 import {
@@ -13,8 +14,36 @@ import { templates, renderTemplate, errorTemplates } from './Components';
 import type { Env } from './types';
 import { Logger } from './shared';
 import { MemoryService } from './services/memoryService';
+import { HomePage } from './components/HomePage';
+// Security middleware functions
+const securityHeaders = async (c: Context, next: Next) => {
+  c.header('X-Content-Type-Options', 'nosniff');
+  c.header('X-Frame-Options', 'DENY');
+  c.header('X-XSS-Protection', '1; mode=block');
+  c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  await next();
+};
 
-// Enhanced error mapping
+const csrfProtection = async (c: Context, next: Next) => {
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(c.req.method)) {
+    const token = c.req.header('X-CSRF-Token');
+    const cookieToken = getCookie(c, 'csrf-token');
+
+    if (!token || !cookieToken || token !== cookieToken) {
+      return c.json({ error: 'Invalid CSRF token' }, 403);
+    }
+  }
+  await next();
+};
+
+// Create public routes instance
+const publicRoutes = new Hono<{ Bindings: Env }>();
+
+// Apply middleware
+publicRoutes.use('*', securityHeaders);
+publicRoutes.use('/api/*', csrfProtection);
+publicRoutes.use('/api/*', csrfProtection);
+
 
 // Session configuration
 const SESSION_CONFIG = {
@@ -94,7 +123,11 @@ publicRoutes.get('/', async (c) => {
   if (sessionToken) {
     return c.redirect('/dashboard');
   }
-  return c.html(renderTemplate(() => templates.home()));
+  const homePage = new HomePage({
+    title: 'Welcome to RusstCorp AI',
+    showAuth: true
+  });
+  return homePage.render(c);
 });
 
 publicRoutes.get('/login', (c) => {
@@ -106,103 +139,186 @@ publicRoutes.get('/signup', (c) => {
 });
 
 // Auth API routes - NO auth middleware
-publicRoutes.post('/api/login', rateLimit(10, 60000), async (c) => {
+publicRoutes.post('/api/login', createRateLimiter(new RateLimiter(10, 60000)), async (c: Context<{ Bindings: Env }>) => {
   try {
+    // Parse and validate input
     const formData = await c.req.parseBody();
-    const email = String(formData.email || '');
+    const email = String(formData.email || '').toLowerCase().trim();
     const password = String(formData.password || '');
+    const rememberMe = Boolean(formData.remember_me);
 
-    if (!email || !password || !validateEmail(email)) {
-      return c.json({ error: 'Invalid credentials' }, 400);
-    }
-
-    const userData = await c.env.USERS_KV.get(email);
-    if (!userData) {
-      return c.json({ error: 'Invalid credentials' }, 401);
-    }
-
-    const user = JSON.parse(userData);
-    const isValidPassword = await validatePassword(password, user.password);
-    if (!isValidPassword) {
-      return c.json({ error: 'Invalid credentials' }, 401);
-    }
-
-    const sessionToken = generateSecureKey(32);
-    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
-    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
-
-    const saveResponse = await sessionDO.fetch(new Request('https://dummy/save', {
-      method: 'POST',
-      body: JSON.stringify({ email, deviceInfo: { userAgent: c.req.header('user-agent'), ip: c.req.header('cf-connecting-ip'), timestamp: Date.now() }, rememberMe: formData.remember_me })
-    }));
-
-    if (!saveResponse.ok) {
-      throw new AppError('Failed to create session', 'SESSION_CREATION_FAILED', 500);
-    }
-
-    setCookie(c, 'session', sessionToken, {
-      httpOnly: true,
-      secure: true,
-      path: '/',
-      sameSite: 'Strict',
-      maxAge: 60 * 60 * 24
-    });
-
-    return c.json({ success: true, redirect: '/dashboard' });
-  } catch (error) {
-    Logger.log('ERROR', 'Login failed', { error });
-    if (error instanceof AppError) {
-      return c.json({ error: error.message, code: error.code }, error.status);
-    }
-    return c.json({ error: 'Login failed' }, 500);
-  }
-});
-
-publicRoutes.post('/api/signup', async (c) => {
-  try {
-    const { email, password, confirm_password } = await c.req.parseBody() as { email: string, password: string, confirm_password: string };
-
+    // Input validation
     if (!email || !password) {
       return c.json({ error: "Missing email or password" }, 400);
-    }
-
-    if (password !== confirm_password) {
-      return c.json({ error: "Passwords do not match" }, 400);
     }
 
     if (!validateEmail(email)) {
       return c.json({ error: "Invalid email format" }, 400);
     }
 
+    // Retrieve user data
+    const userData = await c.env.USERS_KV.get(email);
+    if (!userData) {
+      return c.json({ error: "Invalid credentials" }, 401);
+    }
+
+    const user = JSON.parse(userData);
+
+    // Check account status
+    if (user.status === 'locked') {
+      return c.json({
+        error: 'Account is locked. Please contact support or reset your password.',
+        code: 'ACCOUNT_LOCKED'
+      }, 403);
+    }
+
+    if (user.status === 'pending_verification') {
+      return c.json({
+        error: 'Please verify your email before logging in',
+        code: 'EMAIL_UNVERIFIED'
+      }, 403);
+    }
+
+    // Verify password
+    const isValidPassword = await comparePasswords(password, user.password);
+    if (!isValidPassword) {
+      // Increment login attempts
+      user.login_attempts = (user.login_attempts || 0) + 1;
+
+      // Lock account after 5 failed attempts
+      if (user.login_attempts >= 5) {
+        user.status = 'locked';
+        await c.env.USERS_KV.put(email, JSON.stringify(user));
+        return c.json({
+          error: 'Too many failed attempts. Account locked.',
+          code: 'ACCOUNT_LOCKED'
+        }, 403);
+      }
+
+      await c.env.USERS_KV.put(email, JSON.stringify(user));
+      return c.json({ error: "Invalid credentials" }, 401);
+    }
+
+    // Success - Reset login attempts and update last login
+    user.login_attempts = 0;
+    user.last_login = new Date().toISOString();
+    await c.env.USERS_KV.put(email, JSON.stringify(user));
+
+    // Create session
+    const sessionData = {
+      email,
+      deviceInfo: {
+        userAgent: c.req.header('user-agent'),
+        ip: c.req.header('cf-connecting-ip'),
+        timestamp: Date.now()
+      },
+      expires: Date.now() + (rememberMe ? SessionDO.SESSION_TIMEOUT * 30 : SessionDO.SESSION_TIMEOUT),
+      lastActivity: Date.now(),
+      createdAt: Date.now(),
+      version: 1
+    };
+
+    // Save session
+    const sessionDO = c.env.SESSIONS_DO;
+    const saveResponse = await sessionDO.fetch(new Request('https://dummy/save', {
+      method: 'POST',
+      body: JSON.stringify(sessionData)
+    }));
+
+    if (!saveResponse.ok) {
+      throw new Error('Failed to create session');
+    }
+
+    // Set session cookie
+    const sessionToken = await saveResponse.text();
+    setCookie(c, 'session', sessionToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: rememberMe ? SessionDO.SESSION_TIMEOUT * 30 : SessionDO.SESSION_TIMEOUT
+    });
+
+    return c.json({
+      success: true,
+      redirect: '/dashboard'
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    return c.json({
+      error: 'Login failed',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }, 500);
+  }
+});
+
+publicRoutes.post('/api/signup', async (c: Context<{ Bindings: Env }>) => {
+  try {
+    // Parse and validate input
+    const { email, password, confirm_password } = await c.req.parseBody() as {
+      email: string,
+      password: string,
+      confirm_password: string
+    };
+
+    // Input validation
+    if (!email || !password || !confirm_password) {
+      return c.json({ error: "All fields are required" }, 400);
+    }
+
+    if (!validateEmail(email)) {
+      return c.json({ error: "Invalid email format" }, 400);
+    }
+
+    if (password !== confirm_password) {
+      return c.json({ error: "Passwords do not match" }, 400);
+    }
+
+    // Password strength validation
+    const strengthCheck = validatePasswordStrength(password);
+    if (!strengthCheck.valid) {
+      return c.json({ error: strengthCheck.reason }, 400);
+    }
+
+    // Check for existing user
     const existing = await c.env.USERS_KV.get(email);
     if (existing) {
       return c.json({ error: "Email already registered" }, 400);
     }
 
+    // Create user with enhanced security
     const hashedPassword = await hashPassword(password);
-    const user = { email, password: hashedPassword };
+    const verificationToken = await generateSecureKey();
+    const user = {
+      email,
+      password: hashedPassword,
+      created_at: new Date().toISOString(),
+      status: 'pending_verification',
+      login_attempts: 0,
+      last_login: null,
+      verification_token: verificationToken,
+      verified: false,
+      version: 1
+    };
+
+    // Save user to KV store
     await c.env.USERS_KV.put(email, JSON.stringify(user));
 
-    const sessionToken = generateSecureKey(32);
-    const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
-    const sessionDO = c.env.SESSIONS_DO.get(sessionId);
-    await sessionDO.fetch(new Request('https://dummy/save', {
-      method: 'POST',
-      body: email
-    }));
+    // Send verification email
+    await sendVerificationEmail(c.env, email, verificationToken);
 
-    setCookie(c, 'session', sessionToken, {
-      httpOnly: true,
-      secure: true,
-      path: '/',
-      sameSite: 'Strict',
-      maxAge: 60 * 60 * 24
+    return c.json({
+      success: true,
+      message: "Account created. Please check your email to verify your account."
     });
 
-    return c.json({ success: true });
-  } catch (err) {
-    console.error('Signup error:', err);
-    return c.json({ error: 'Signup failed' }, 400);
+  } catch (error) {
+    console.error('Signup error:', error);
+    return c.json({
+      error: 'Signup failed',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }, 500);
   }
 });
 
