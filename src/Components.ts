@@ -629,6 +629,76 @@ export function validateEnv(env: Env): void {
 }
 
 // Login form component with proper HTMX attributes
+const loginFormNoNav = `
+<div class="auth-container">
+  <h1>Login</h1>
+  <div id="error-messages" class="error-container" style="display: none;"></div>
+  <form id="loginForm" hx-post="/api/login" hx-target="#error-messages">
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required
+             pattern="[^@]+@[^@]+\.[^@]+"
+             title="Please enter a valid email">
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required minlength="8">
+      <div class="password-strength"></div>
+    </div>
+    <div class="form-options">
+      <label>
+        <input type="checkbox" name="remember_me"> Remember me
+      </label>
+      <a href="/forgot-password" class="forgot-password">Forgot password?</a>
+    </div>
+    <button type="submit" id="submitBtn">Login</button>
+    <div class="loading-indicator" style="display: none;">Signing in...</div>
+  </form>
+  <p>Don't have an account? <a href="/signup">Sign up</a></p>
+  <script>
+    const form = document.getElementById('loginForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const loading = document.querySelector('.loading-indicator');
+
+    form.addEventListener('submit', (e) => {
+      if (!form.checkValidity()) {
+        e.preventDefault();
+        return;
+      }
+    });
+
+    form.addEventListener('htmx:beforeRequest', () => {
+      submitBtn.disabled = true;
+      loading.style.display = 'block';
+    });
+
+    form.addEventListener('htmx:afterRequest', function(event) {
+      submitBtn.disabled = false;
+      loading.style.display = 'none';
+
+      try {
+        const response = JSON.parse(event.detail.xhr.response);
+        if (response.success) {
+          window.location.href = response.redirect;
+        } else {
+          const errorContainer = document.getElementById('error-messages');
+          errorContainer.textContent = response.error;
+          errorContainer.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        const errorContainer = document.getElementById('error-messages');
+        errorContainer.textContent = 'An unexpected error occurred';
+        errorContainer.style.display = 'block';
+      }
+    });
+  </script>
+</div>
+`;
+
+// src/Components.ts
+
+// Login form component without navigation
 const loginForm = `
 <div class="auth-container">
   <h1>Login</h1>
@@ -696,32 +766,89 @@ const loginForm = `
 </div>
 `;
 
-// Home template component
-const homeTemplate = `
-<div class="home-container">
-  <header class="action-bar">
-    <div class="home-button">Home</div>
-    <div class="title">RusstCorp</div>
-    <div class="user-icon">User</div>
-  </header>
-  <aside class="sidebar">
-    <div class="sidebar-item">Dashboard</div>
-    <div class="sidebar-item">Settings</div>
-    <div class="sidebar-item">Logout</div>
-  </aside>
-  <main class="content">
-    <h1>Welcome to RusstCorp</h1>
-    <p>Your one-stop solution for all your needs.</p>
-  </main>
+// Signup form component without navigation
+const signupForm = `
+<div class="auth-container">
+  <h1>Create Account</h1>
+  <div id="error-messages" class="error-container" style="display: none;"></div>
+  <form id="signupForm" hx-post="/api/signup" hx-target="#error-messages">
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required
+             pattern="[^@]+@[^@]+\.[^@]+" title="Please enter a valid email">
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required minlength="8">
+      <div class="password-strength"></div>
+      <small>Must have uppercase, lowercase, numbers, and special characters</small>
+    </div>
+    <div class="form-group">
+      <label for="confirm_password">Confirm Password</label>
+      <input type="password" id="confirm_password" name="confirm_password" required>
+    </div>
+    <button type="submit" id="submitBtn">Sign Up</button>
+    <div class="loading-indicator" style="display: none;">Creating account...</div>
+  </form>
+  <p>Already have an account? <a href="/login">Login</a></p>
+  <script>
+    const form = document.getElementById('signupForm');
+    const passwordInput = document.getElementById('password');
+    const confirmInput = document.getElementById('confirm_password');
+    const submitBtn = document.getElementById('submitBtn');
+    const loading = document.querySelector('.loading-indicator');
+
+    passwordInput.addEventListener('input', function() {
+      const strength = validatePasswordStrength(this.value);
+      const indicator = document.querySelector('.password-strength');
+      indicator.textContent = strength.reason || 'Password strength: Good';
+      indicator.className = 'password-strength ' + (strength.valid ? 'valid' : 'invalid');
+    });
+
+    confirmInput.addEventListener('input', function() {
+      if (this.value !== passwordInput.value) {
+        this.setCustomValidity('Passwords must match');
+      } else {
+        this.setCustomValidity('');
+      }
+    });
+
+    form.addEventListener('htmx:beforeRequest', () => {
+      submitBtn.disabled = true;
+      loading.style.display = 'block';
+    });
+
+    form.addEventListener('htmx:afterRequest', function(event) {
+      submitBtn.disabled = false;
+      loading.style.display = 'none';
+
+      try {
+        const response = JSON.parse(event.detail.xhr.response);
+        if (response.success) {
+          window.location.href = '/dashboard';
+        } else {
+          const errorContainer = document.getElementById('error-messages');
+          errorContainer.textContent = response.error;
+          errorContainer.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Signup error:', error);
+        const errorContainer = document.getElementById('error-messages');
+        errorContainer.textContent = 'An unexpected error occurred';
+        errorContainer.style.display = 'block';
+      }
+    });
+  </script>
 </div>
 `;
 
+// Enhanced templates object
 // Enhanced templates object
 export const templates = {
   login: () => {
     try {
       log('DEBUG', 'Rendering login template');
-      const html = baseLayout('Login', loginFormNoNav);
+      const html = baseLayout('Login', loginForm);
       log('DEBUG', 'Login template rendered successfully');
       return html;
     } catch (error: any) {
@@ -731,7 +858,7 @@ export const templates = {
   },
   signup: () => {
     try {
-      const html = baseLayout('Sign Up', signupFormNoNav);
+      const html = baseLayout('Sign Up', signupForm);
       log('DEBUG', 'Signup template rendered successfully');
       return html;
     } catch (error: any) {
@@ -750,89 +877,6 @@ export const templates = {
       throw error;
     }
   },
-  signup: () => {
-    try {
-      const html = baseLayout('Sign Up', `
-        <div class="auth-container">
-          <h1>Create Account</h1>
-          <div id="error-messages" class="error-container" style="display: none;"></div>
-          <form id="signupForm" hx-post="/api/signup" hx-target="#error-messages">
-            <div class="form-group">
-              <label for="email">Email</label>
-              <input type="email" id="email" name="email" required
-                     pattern="[^@]+@[^@]+\.[^@]+" title="Please enter a valid email">
-            </div>
-            <div class="form-group">
-              <label for="password">Password</label>
-              <input type="password" id="password" name="password" required minlength="8">
-              <div class="password-strength"></div>
-              <small>Must have uppercase, lowercase, numbers, and special characters</small>
-            </div>
-            <div class="form-group">
-              <label for="confirm_password">Confirm Password</label>
-              <input type="password" id="confirm_password" name="confirm_password" required>
-            </div>
-            <button type="submit" id="submitBtn">Sign Up</button>
-            <div class="loading-indicator" style="display: none;">Creating account...</div>
-          </form>
-          <p>Already have an account? <a href="/login">Login</a></p>
-          <script>
-            const form = document.getElementById('signupForm');
-            const passwordInput = document.getElementById('password');
-            const confirmInput = document.getElementById('confirm_password');
-            const submitBtn = document.getElementById('submitBtn');
-            const loading = document.querySelector('.loading-indicator');
-
-            passwordInput.addEventListener('input', function() {
-              const strength = validatePasswordStrength(this.value);
-              const indicator = document.querySelector('.password-strength');
-              indicator.textContent = strength.reason || 'Password strength: Good';
-              indicator.className = 'password-strength ' + (strength.valid ? 'valid' : 'invalid');
-            });
-
-            confirmInput.addEventListener('input', function() {
-              if (this.value !== passwordInput.value) {
-                this.setCustomValidity('Passwords must match');
-              } else {
-                this.setCustomValidity('');
-              }
-            });
-
-            form.addEventListener('htmx:beforeRequest', () => {
-              submitBtn.disabled = true;
-              loading.style.display = 'block';
-            });
-
-            form.addEventListener('htmx:afterRequest', function(event) {
-              submitBtn.disabled = false;
-              loading.style.display = 'none';
-
-              try {
-                const response = JSON.parse(event.detail.xhr.response);
-                if (response.success) {
-                  window.location.href = '/dashboard';
-                } else {
-                  const errorContainer = document.getElementById('error-messages');
-                  errorContainer.textContent = response.error;
-                  errorContainer.style.display = 'block';
-                }
-              } catch (error) {
-                console.error('Signup error:', error);
-                const errorContainer = document.getElementById('error-messages');
-                errorContainer.textContent = 'An unexpected error occurred';
-                errorContainer.style.display = 'block';
-              }
-            });
-          </script>
-        </div>
-      `);
-      return html;
-    } catch (error) {
-      log('ERROR', 'Failed to render signup template', { error });
-      throw error;
-    }
-  },
-
   dashboard: () => {
     try {
       const html = baseLayout('Dashboard', `
@@ -904,6 +948,7 @@ export const templates = {
           </script>
         </div>
       `);
+      log('DEBUG', 'Dashboard template rendered successfully');
       return html;
     } catch (error) {
       log('ERROR', 'Failed to render dashboard template', { error });
@@ -1336,144 +1381,30 @@ protectedRoutes.get('/api/activity', async (c: Context<{ Bindings: Env; Variable
   }
 });
 
-// Login form component without navigation
-const loginFormNoNav = `
-<div class="auth-container">
-  <h1>Login</h1>
-  <div id="error-messages" class="error-container" style="display: none;"></div>
-  <form id="loginForm" hx-post="/api/login" hx-target="#error-messages">
-    <div class="form-group">
-      <label for="email">Email</label>
-      <input type="email" id="email" name="email" required
-             pattern="[^@]+@[^@]+\.[^@]+"
-             title="Please enter a valid email">
-    </div>
-    <div class="form-group">
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password" required minlength="8">
-      <div class="password-strength"></div>
-    </div>
-    <div class="form-options">
-      <label>
-        <input type="checkbox" name="remember_me"> Remember me
-      </label>
-      <a href="/forgot-password" class="forgot-password">Forgot password?</a>
-    </div>
-    <button type="submit" id="submitBtn">Login</button>
-    <div class="loading-indicator" style="display: none;">Signing in...</div>
-  </form>
-  <p>Don't have an account? <a href="/signup">Sign up</a></p>
+// Home template component
+const homeTemplate = `
+<div class="home-container">
+  <h1>Welcome to RusstCorp AI</h1>
+  <p>Your AI-powered assistant for managing notes and memories.</p>
+  <div class="home-links">
+    <a href="/login" class="button">Login</a>
+    <a href="/signup" class="button">Sign Up</a>
+  </div>
+  <div class="home-description">
+    <h2>Features</h2>
+    <ul>
+      <li>Secure note-taking with advanced search capabilities</li>
+      <li>Organize your memories into folders</li>
+      <li>Share notes and collaborate with others</li>
+      <li>AI-powered insights and recommendations</li>
+    </ul>
+  </div>
   <script>
-    const form = document.getElementById('loginForm');
-    const submitBtn = document.getElementById('submitBtn');
-    const loading = document.querySelector('.loading-indicator');
-
-    form.addEventListener('submit', (e) => {
-      if (!form.checkValidity()) {
-        e.preventDefault();
-        return;
-      }
-    });
-
-    form.addEventListener('htmx:beforeRequest', () => {
-      submitBtn.disabled = true;
-      loading.style.display = 'block';
-    });
-
-    form.addEventListener('htmx:afterRequest', function(event) {
-      submitBtn.disabled = false;
-      loading.style.display = 'none';
-
+    document.addEventListener('DOMContentLoaded', () => {
       try {
-        const response = JSON.parse(event.detail.xhr.response);
-        if (response.success) {
-          window.location.href = response.redirect;
-        } else {
-          const errorContainer = document.getElementById('error-messages');
-          errorContainer.textContent = response.error;
-          errorContainer.style.display = 'block';
-        }
+        console.log('Home page loaded successfully');
       } catch (error) {
-        console.error('Login error:', error);
-        const errorContainer = document.getElementById('error-messages');
-        errorContainer.textContent = 'An unexpected error occurred';
-        errorContainer.style.display = 'block';
-      }
-    });
-  </script>
-</div>
-`;
-
-// Signup form component without navigation
-const signupFormNoNav = `
-<div class="auth-container">
-  <h1>Create Account</h1>
-  <div id="error-messages" class="error-container" style="display: none;"></div>
-  <form id="signupForm" hx-post="/api/signup" hx-target="#error-messages">
-    <div class="form-group">
-      <label for="email">Email</label>
-      <input type="email" id="email" name="email" required
-             pattern="[^@]+@[^@]+\.[^@]+" title="Please enter a valid email">
-    </div>
-    <div class="form-group">
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password" required minlength="8">
-      <div class="password-strength"></div>
-      <small>Must have uppercase, lowercase, numbers, and special characters</small>
-    </div>
-    <div class="form-group">
-      <label for="confirm_password">Confirm Password</label>
-      <input type="password" id="confirm_password" name="confirm_password" required>
-    </div>
-    <button type="submit" id="submitBtn">Sign Up</button>
-    <div class="loading-indicator" style="display: none;">Creating account...</div>
-  </form>
-  <p>Already have an account? <a href="/login">Login</a></p>
-  <script>
-    const form = document.getElementById('signupForm');
-    const passwordInput = document.getElementById('password');
-    const confirmInput = document.getElementById('confirm_password');
-    const submitBtn = document.getElementById('submitBtn');
-    const loading = document.querySelector('.loading-indicator');
-
-    passwordInput.addEventListener('input', function() {
-      const strength = validatePasswordStrength(this.value);
-      const indicator = document.querySelector('.password-strength');
-      indicator.textContent = strength.reason || 'Password strength: Good';
-      indicator.className = 'password-strength ' + (strength.valid ? 'valid' : 'invalid');
-    });
-
-    confirmInput.addEventListener('input', function() {
-      if (this.value !== passwordInput.value) {
-        this.setCustomValidity('Passwords must match');
-      } else {
-        this.setCustomValidity('');
-      }
-    });
-
-    form.addEventListener('htmx:beforeRequest', () => {
-      submitBtn.disabled = true;
-      loading.style.display = 'block';
-    });
-
-    form.addEventListener('htmx:afterRequest', function(event) {
-      submitBtn.disabled = false;
-      loading.style.display = 'none';
-
-      try {
-        const response = JSON.parse(event.detail.xhr.response);
-        if (response.success) {
-          window.location.href = response.redirect;
-        } else {
-          const errorContainer = document.getElementById('error-messages');
-          errorContainer.textContent = response.error;
-          errorContainer.style.display = 'block';
-        }
-      } catch (error) {
-        console.error('Signup error:', error);
-        const errorContainer = document.getElementById('error-messages');
-        errorContainer.textContent = 'An unexpected error occurred';
-        errorContainer.style.display = 'block';
+        console.error('Error loading home page:', error);
       }
     });
   </script>
