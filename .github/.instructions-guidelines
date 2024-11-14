@@ -1,0 +1,127 @@
+
+## Tips for Defining Custom Instructions
+
+1. **Keep Instructions Short and Self-Contained:**
+   - Each instruction should be a single, simple statement.
+   - If you need to provide multiple pieces of information, use multiple instructions.
+
+2. **Avoid External References:**
+   - Do not refer to external resources in the instructions, such as specific coding standards.
+
+3. **Define Language-Specific Instructions:**
+   - Define language-specific instructions to get more accurate generated code for each language.
+
+4. **Version Control:**
+   - Store custom instructions in an external file and use version control to track changes over time.
+
+5. **Team Collaboration:**
+   - Make it easy to share custom instructions with your team or across projects.
+
+## Project Summary and Guidelines
+
+### Overview
+Your project involves creating an AI developer assistant hosted on Cloudflare. The application will leverage various Cloudflare services, primarily using Cloudflare Workflows and Workers to implement a composable, modular program. The following guidelines outline the use of each Cloudflare service and their corresponding use cases.
+
+### Cloudflare Services and Use Cases
+
+1. **Cloudflare Workflows:**
+   - **Primary Implementation:** Use Workflows as the primary method to implement the application.
+   - **Modular Program Execution:** Create a workflow-based architecture to ensure composable and modular program execution.
+
+2. **Cloudflare Workers:**
+   - **Supplementary Tasks:** Use Workers for tasks that cannot be accomplished with Workflows.
+   - **Serverless Execution:** Enable server-side programming and run code at the edge.
+
+3. **Cloudflare Workers AI:**
+   - **AI Interactions:** Serve as the core component for AI interactions.
+   - **Inference Capabilities:** Provide AI inference capabilities at the edge.
+
+4. **Cloudflare KV:**
+   - **Storage and State Management:** Store key-value pairs in a distributed and globally available manner.
+   - **Session Management:** Use KV for session storage and quick access to user data.
+
+5. **Cloudflare Durable Objects:**
+   - **Stateful Objects:** Manage stateful, long-lived objects.
+   - **Shared State Management:** Enable shared state management between Workers instances.
+
+6. **Cloudflare Queues and Calls:**
+   - **Messaging and Channels:** Implement messaging and channels for asynchronous communication.
+   - **Task Scheduling:** Use Queues for task scheduling and background processing.
+
+7. **Cloudflare D1:**
+   - **High-Performance Storage:** Provide high-performance, low-latency storage for read-intensive workloads.
+   - **Database Management:** Use D1 for structured data storage and querying.
+
+8. **Cloudflare R2 Storage:**
+   - **Scalable Storage:** Provide scalable and durable cloud storage capabilities.
+   - **File Storage:** Use R2 for storing large files and media assets.
+
+9. **Cloudflare Vectorize:**
+   - **Vector Embedding and Searching:** Enable efficient indexing and searching of high-dimensional vectors.
+   - **AI Data Processing:** Use Vectorize for processing and searching AI-related data.
+
+10. **Cloudflare AI Gateway:**
+    - **Logging and Monitoring:** Provide logging, monitoring, and observability for AI interactions.
+    - **Performance Insights:** Gain insights into AI models' performance and metrics.
+
+11. **Cloudflare Images:**
+    - **Image Processing:** Use for image-related processing and manipulation.
+    - **Optimization:** Provide various image transformation and optimization features.
+
+12. **Cloudflare Turnstile:**
+    - **Authentication and Security:** Implement authentication and security features.
+    - **Rate Limiting and Captcha:** Use for rate limiting, IP blocking, and Captcha.
+
+13. **Cloudflare LogPush:**
+    - **Log Management:** Collect and store logs from the application.
+    - **External Log Forwarding:** Enable forwarding logs to external log management systems for analysis.
+
+### Best Practices
+
+1. **Keep Instructions Short and Self-Contained:**
+   - Each instruction should be a single, simple statement.
+   - Use multiple instructions for multiple pieces of information.
+
+2. **Avoid External References:**
+   - Do not refer to external resources such as specific coding standards in the instructions.
+
+3. **Language-Specific Instructions:**
+   - Define language-specific instructions to get more accurate generated code for each language.
+
+4. **Version Control:**
+   - Store custom instructions in an external file and use version control to track changes over time.
+
+5. **Team Collaboration:**
+   - Make it easy to share custom instructions with your team or across projects.
+
+### Implementation Strategy
+
+1. **Workflows First:**
+   - Use Cloudflare Workflows as the primary method to implement the application.
+   - Ensure that the application is modular and composable.
+
+2. **Workers for Supplementary Tasks:**
+   - Use Cloudflare Workers for tasks that cannot be accomplished with Workflows.
+   - Implement server-side logic and run code at the edge.
+
+3. **AI Integration:**
+   - Use Workers AI as the core component for AI interactions.
+   - Leverage AI Gateway for logging, monitoring, and observability.
+
+4. **Storage and State Management:**
+   - Use KV, Durable Objects, D1, and R2 for storage and state management.
+   - Ensure data is stored in a distributed and globally available manner.
+
+5. **Messaging and Communication:**
+   - Use Queues and Calls for messaging and implementing channels.
+   - Enable asynchronous communication between different components.
+
+6. **Security and Authentication:**
+   - Implement security features using Turnstile.
+   - Use rate limiting, IP blocking, and Captcha for enhanced security.
+
+7. **Logging and Monitoring:**
+   - Use LogPush for collecting and storing logs.
+   - Forward logs to external log management systems for analysis.
+
+By following these guidelines, you can ensure that your AI developer assistant application is robust, scalable, and leverages the full potential of Cloudflare services. If there are any changes or further instructions, please let me know, and I'll be happy to assist you further.
