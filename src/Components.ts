@@ -682,7 +682,7 @@ const loginForm = `
           window.location.href = response.redirect;
         } else {
           const errorContainer = document.getElementById('error-messages');
-          errorContainer.textContent = response.error || 'Login failed';
+          errorContainer.textContent = response.error;
           errorContainer.style.display = 'block';
         }
       } catch (error) {
@@ -721,11 +721,21 @@ export const templates = {
   login: () => {
     try {
       log('DEBUG', 'Rendering login template');
-      const html = baseLayout('Login', loginForm);
+      const html = baseLayout('Login', loginFormNoNav);
       log('DEBUG', 'Login template rendered successfully');
       return html;
     } catch (error: any) {
       log('ERROR', 'Failed to render login template', { error });
+      throw error;
+    }
+  },
+  signup: () => {
+    try {
+      const html = baseLayout('Sign Up', signupFormNoNav);
+      log('DEBUG', 'Signup template rendered successfully');
+      return html;
+    } catch (error: any) {
+      log('ERROR', 'Failed to render signup template', { error });
       throw error;
     }
   },
