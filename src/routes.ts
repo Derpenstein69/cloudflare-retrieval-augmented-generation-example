@@ -8,7 +8,6 @@ import {
   validatePassword,
   SessionDO,
   AppError
-  // validatePasswordStrength
 } from './shared';
 import { templates, renderTemplate, errorTemplates } from './Components';
 import type { Env } from './types';
@@ -134,24 +133,27 @@ publicRoutes.post('/api/login', rateLimit(10, 60000), async (c) => {
 
     const saveResponse = await sessionDO.fetch(new Request('https://dummy/save', {
       method: 'POST',
-      body: email
+      body: JSON.stringify({ email, deviceInfo: { userAgent: c.req.header('user-agent'), ip: c.req.header('cf-connecting-ip'), timestamp: Date.now() }, rememberMe: formData.remember_me })
     }));
 
     if (!saveResponse.ok) {
-      throw new Error('Failed to create session');
+      throw new AppError('Failed to create session', 'SESSION_CREATION_FAILED', 500);
     }
 
     setCookie(c, 'session', sessionToken, {
       httpOnly: true,
       secure: true,
       path: '/',
-      sameSite: 'Lax', // Changed from Strict to Lax for better compatibility
+      sameSite: 'Strict',
       maxAge: 60 * 60 * 24
     });
 
     return c.json({ success: true, redirect: '/dashboard' });
   } catch (error) {
-    log('ERROR', 'Login failed', { error });
+    Logger.log('ERROR', 'Login failed', { error });
+    if (error instanceof AppError) {
+      return c.json({ error: error.message, code: error.code }, error.status);
+    }
     return c.json({ error: 'Login failed' }, 500);
   }
 });
