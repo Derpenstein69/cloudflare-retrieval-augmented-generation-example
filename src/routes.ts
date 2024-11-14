@@ -35,17 +35,17 @@ export function validateEnv(env: Env): void {
 export const authMiddleware = async (c: any, next: () => Promise<any>) => {
   try {
     const sessionToken = getCookie(c, 'session');
-    if (!sessionToken) throw new Error('No session token');
+    if (!sessionToken) throw new AppError('No session token', 'AUTH_REQUIRED', 401);
 
     const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, sessionToken);
     const sessionDO = c.env.SESSIONS_DO.get(sessionId);
     const response = await sessionDO.fetch(new Request('https://dummy/get'));
 
-    if (!response.ok) throw new Error('Invalid session');
+    if (!response.ok) throw new AppError('Invalid session', 'AUTH_FAILED', 401);
 
     const session = await response.json();
     if (Date.now() - session.lastActivity > SESSION_CONFIG.maxAge * 1000) {
-      throw new Error('Session expired');
+      throw new AppError('Session expired', 'AUTH_EXPIRED', 401);
     }
 
     // Renew session if needed
@@ -67,7 +67,7 @@ export const authMiddleware = async (c: any, next: () => Promise<any>) => {
 async function renewSession(c: any, token: string, email: string): Promise<void> {
   const sessionId = SessionDO.createSessionId(c.env.SESSIONS_DO, token);
   const sessionDO = c.env.SESSIONS_DO.get(sessionId);
-  await sessionDO.fetch(new Request('https://dummy/update', {
+  await sessionDO.fetch(new Request('https://dummy/renew', {
     method: 'POST',
     body: JSON.stringify({ email, lastActivity: Date.now() })
   }));

@@ -449,9 +449,6 @@ interface SessionData {
 }
 
 export class SessionDO {
-  private static readonly SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-  private static readonly RENEWAL_THRESHOLD = 60 * 60 * 1000;
-  private static readonly MAX_SESSIONS_PER_USER = 5;
   private state: DurableObjectState;
 
   constructor(state: DurableObjectState) {
@@ -474,17 +471,7 @@ export class SessionDO {
           return new Response('Not Found', { status: 404 });
       }
     } catch (error) {
-      log('ERROR', 'Session operation error', { error });
-      return new Response('Internal Error', { status: 500 });
-    }
-  }
-
-  private async handleDelete(): Promise<Response> {
-    try {
-      await this.state.storage.delete('session');
-      return new Response('OK');
-    } catch (error) {
-      log('ERROR', 'Session delete error', { error });
+      console.error('Session operation error:', error);
       return new Response('Internal Error', { status: 500 });
     }
   }
@@ -494,13 +481,9 @@ export class SessionDO {
       const data = await request.json() as {
         email: string;
         deviceInfo: { userAgent: string; ip: string; timestamp: number };
-        rememberMe: boolean
+        rememberMe: boolean;
       };
       const { email, deviceInfo, rememberMe } = data;
-      if (await this.getUserSessions(email).then(sessions => sessions.length >= SessionDO.MAX_SESSIONS_PER_USER)) {
-        // Remove oldest session
-        await this.removeOldestSession(email);
-      }
 
       const sessionData = {
         email,
@@ -514,7 +497,7 @@ export class SessionDO {
       await this.state.storage.put('session', sessionData);
       return new Response('OK');
     } catch (error) {
-      log('ERROR', 'Session save error', { error });
+      console.error('Session save error:', error);
       return new Response('Internal Error', { status: 500 });
     }
   }
@@ -531,11 +514,6 @@ export class SessionDO {
         return new Response('Session expired', { status: 401 });
       }
 
-      // Auto-renew session if within threshold
-      if (Date.now() - session.lastActivity > SessionDO.RENEWAL_THRESHOLD) {
-        await this.handleRenew();
-      }
-
       await this.state.storage.put('session', {
         ...session,
         lastActivity: Date.now()
@@ -543,12 +521,22 @@ export class SessionDO {
 
       return new Response(JSON.stringify(session));
     } catch (error) {
-      log('ERROR', 'Session get error', { error });
+      console.error('Session get error:', error);
       return new Response('Internal Error', { status: 500 });
     }
   }
 
-  private async handleRenew(): Promise<Response> {
+  async handleDelete(): Promise<Response> {
+    try {
+      await this.state.storage.delete('session');
+      return new Response('OK');
+    } catch (error) {
+      console.error('Session delete error:', error);
+      return new Response('Internal Error', { status: 500 });
+    }
+  }
+
+  async handleRenew(): Promise<Response> {
     try {
       const session = await this.state.storage.get('session');
       if (!session) {
@@ -564,7 +552,7 @@ export class SessionDO {
       await this.state.storage.put('session', renewedSession);
       return new Response('OK');
     } catch (error) {
-      log('ERROR', 'Session renewal error', { error });
+      console.error('Session renewal error:', error);
       return new Response('Internal Error', { status: 500 });
     }
   }
